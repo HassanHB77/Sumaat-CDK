@@ -1,0 +1,106 @@
+import boto3
+import pytest
+from boto3.dynamodb.conditions import Key
+from moto import mock_aws
+
+from scripts.seed import seed, stable_id
+from scripts.seed_data import COUNTER_START, RESTAURANTS
+
+PASSWORD = "Test#Pass2026"
+
+
+def _create_table(ddb):
+    gsi = lambda n: {  # noqa: E731
+        "IndexName": f"GSI{n}",
+        "KeySchema": [
+            {"AttributeName": f"GSI{n}PK", "KeyType": "HASH"},
+            {"AttributeName": f"GSI{n}SK", "KeyType": "RANGE"},
+        ],
+        "Projection": {"ProjectionType": "ALL"},
+    }
+    return ddb.create_table(
+        TableName="sumaat",
+        BillingMode="PAY_PER_REQUEST",
+        KeySchema=[{"AttributeName": "PK", "KeyType": "HASH"}, {"AttributeName": "SK", "KeyType": "RANGE"}],
+        AttributeDefinitions=[
+            {"AttributeName": a, "AttributeType": "S"}
+            for a in ("PK", "SK", "GSI1PK", "GSI1SK", "GSI2PK", "GSI2SK")
+        ],
+        GlobalSecondaryIndexes=[gsi(1), gsi(2)],
+    )
+
+
+@pytest.fixture
+def env():
+    with mock_aws():
+        table = _create_table(boto3.resource("dynamodb", region_name="us-east-1"))
+        cognito = boto3.client("cognito-idp", region_name="us-east-1")
+        pool_id = cognito.create_user_pool(
+            PoolName="sumaat-business",
+            Schema=[{"Name": "restaurantId", "AttributeDataType": "String", "Mutable": True}],
+        )["UserPool"]["Id"]
+        cognito.create_group(UserPoolId=pool_id, GroupName="owner")
+        yield table, cognito, pool_id
+
+
+def test_seed_writes_everything(env):
+    table, cognito, pool_id = env
+    summary = seed(table, cognito, pool_id, PASSWORD)
+    n_items = sum(len(r["items"]) for r in RESTAURANTS)
+    assert summary["restaurants"] == 3
+    assert summary["items"] == n_items
+    assert summary["counters_created"] == 3
+    assert table.scan(Select="COUNT")["Count"] == 3 + n_items + 3
+
+
+def test_restaurant_page_is_one_query(env):
+    table, *_ = env
+    seed(table)
+    rid = stable_id("restaurant", "nakhla-kitchen")
+    items = table.query(KeyConditionExpression=Key("PK").eq(f"RESTAURANT#{rid}"))["Items"]
+    assert {i["SK"].split("#")[0] for i in items} == {"PROFILE", "ITEM", "COUNTER"}
+
+
+def test_geo_lookup_finds_restaurants(env):
+    table, *_ = env
+    seed(table)
+    profile = table.get_item(Key={"PK": f"RESTAURANT#{stable_id('restaurant', 'nakhla-kitchen')}", "SK": "PROFILE"})["Item"]
+    hits = table.query(IndexName="GSI1", KeyConditionExpression=Key("GSI1PK").eq(profile["GSI1PK"]))["Items"]
+    assert profile["id"] in {h["id"] for h in hits}
+
+
+def test_money_is_int_halalas(env):
+    table, *_ = env
+    seed(table)
+    items = [i for i in table.scan()["Items"] if i["type"] == "MENU_ITEM"]
+    assert all(int(i["priceHalalas"]) == i["priceHalalas"] and i["priceHalalas"] > 0 for i in items)
+
+
+def test_owner_linked_both_ways(env):
+    table, cognito, pool_id = env
+    seed(table, cognito, pool_id, PASSWORD)
+    rid = stable_id("restaurant", "qaisariya-grill")
+    user = cognito.admin_get_user(UserPoolId=pool_id, Username="owner.qaisariya@example.com")
+    attrs = {a["Name"]: a["Value"] for a in user["UserAttributes"]}
+    assert attrs["custom:restaurantId"] == rid
+    assert attrs["name"] == "Khalid Al-Qaisi"
+    groups = cognito.admin_list_groups_for_user(UserPoolId=pool_id, Username="owner.qaisariya@example.com")
+    assert [g["GroupName"] for g in groups["Groups"]] == ["owner"]
+    profile = table.get_item(Key={"PK": f"RESTAURANT#{rid}", "SK": "PROFILE"})["Item"]
+    assert profile["ownerSub"] == attrs["sub"]
+
+
+def test_rerun_is_idempotent_and_keeps_counter(env):
+    table, cognito, pool_id = env
+    seed(table, cognito, pool_id, PASSWORD)
+    rid = stable_id("restaurant", "mubarraz-dates-coffee")
+    table.update_item(  # simulate 5 real orders
+        Key={"PK": f"RESTAURANT#{rid}", "SK": "COUNTER"}, UpdateExpression="ADD seq :n", ExpressionAttributeValues={":n": 5}
+    )
+    before = table.scan(Select="COUNT")["Count"]
+    second = seed(table, cognito, pool_id, PASSWORD)
+    assert second["counters_created"] == 0
+    assert table.scan(Select="COUNT")["Count"] == before
+    counter = table.get_item(Key={"PK": f"RESTAURANT#{rid}", "SK": "COUNTER"})["Item"]
+    assert counter["seq"] == COUNTER_START + 5
+    assert len(cognito.list_users(UserPoolId=pool_id)["Users"]) == 3
