@@ -4,6 +4,7 @@
 # Usage (from the project folder, after a deploy):
 #   SUMAAT_PASSWORD='...' ./scripts/smoke_test.sh            # demo password used by scripts/seed.py
 #   SUMAAT_PASSWORD='...' RESTAURANT=qaisariya ./scripts/smoke_test.sh
+#   SUMAAT_PASSWORD='...' VIA=cloudfront ./scripts/smoke_test.sh  # same tests through https://<site>/api
 #
 # Safe to re-run. It leaves realistic data and never duplicates it:
 #   - menu item "Lamb Mandi" is created once, later runs edit it (and leave it available)
@@ -18,7 +19,11 @@ cd "$(dirname "$0")/.."
 
 : "${SUMAAT_PASSWORD:?Set SUMAAT_PASSWORD to the demo password}"
 RESTAURANT="${RESTAURANT:-nakhla}"
-API="$(jq -r '.SumaatApi.ApiUrl' outputs.json)"
+if [ "${VIA:-api}" = cloudfront ]; then
+  API="$(jq -r '.SumaatWeb.SiteUrl' outputs.json)/api"
+else
+  API="$(jq -r '.SumaatApi.ApiUrl' outputs.json)"
+fi
 API="${API%/}"
 LAT=25.3797
 LNG=49.5867

@@ -23,3 +23,7 @@ cdk.out/
 outputs.json
 .DS_Store
 .idea/
+
+# Web (React build, Step 7)
+web/dist/
+web/node_modules/
