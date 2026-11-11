@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 import os
+
 import aws_cdk as cdk
-from cdk_nag import AwsSolutionsChecks
+
+from infra.common import REGION, apply_project_guards
+from infra.data_stack import DataStack
 
 app = cdk.App()
-env = cdk.Environment(account=os.getenv("CDK_DEFAULT_ACCOUNT"), region="us-east-1")
+env = cdk.Environment(account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=REGION)
 
-# Stacks are added here, in deploy order.
+# Stacks, in deploy order.
+data = DataStack(app, "SumaatData", env=env)
 
-cdk.Tags.of(app).add("project", "sumaat")              # cost tag on every resource
-cdk.Aspects.of(app).add(AwsSolutionsChecks(verbose=True))  # cdk-nag from day one
+apply_project_guards(app)  # project=sumaat tag + cdk-nag on everything
 app.synth()
