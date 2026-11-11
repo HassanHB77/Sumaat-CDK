@@ -88,8 +88,9 @@ RESTAURANTS = [
     },
 ]
 
-# Menu categories owners can choose from (stored as CONFIG/CATEGORIES; extend later via CLI/console).
-CATEGORIES = ["Breakfast", "Dates", "Drinks", "Grills", "Mains", "Mezze", "Sandwiches", "Sides", "Sweets"]
+# Menu categories owners can choose from, in MENU ORDER (stored as CONFIG/CATEGORIES: the set + displayOrder;
+# extend the set later via CLI/console, new ones are listed last).
+CATEGORIES = ["Breakfast", "Mains", "Grills", "Sandwiches", "Mezze", "Sides", "Sweets", "Dates", "Drinks"]
 
 # Demo customers (fake emails and phones). Ordering needs a customer account (one role per account).
 CUSTOMERS = [

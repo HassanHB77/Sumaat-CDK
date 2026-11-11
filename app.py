@@ -16,7 +16,7 @@ env = cdk.Environment(account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=REGION)
 data = DataStack(app, "SumaatData", env=env)
 auth = AuthStack(app, "SumaatAuth", env=env)
 api = ApiStack(app, "SumaatApi", table=data.table, user_pool=auth.user_pool, env=env)
-web = WebStack(app, "SumaatWeb", api=api.api, env=env)
+web = WebStack(app, "SumaatWeb", api=api.api, user_pool=auth.user_pool, user_pool_client=auth.client, env=env)
 
 apply_project_guards(app)  # project=sumaat tag + cdk-nag on everything
 app.synth()

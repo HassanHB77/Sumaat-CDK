@@ -2,7 +2,7 @@
 
 Items (see infra/data_stack.py):
   Order       PK=ORDER#<id>      SK=ORDER   GSI1=RORDERS#<rid>/<createdAt>  GSI2=CORDERS#<sub>/<createdAt>
-  Counter     PK=RESTAURANT#<id> SK=COUNTER#<YYYY-MM-DD>  seq   (daily numbers, Riyadh date: #1, #2, ...)
+  Counter     PK=RESTAURANT#<id> SK=COUNTER#<YYYY-MM-DD>  seq   (daily numbers per business day, 04:00-04:00 Riyadh: #1, #2, ...)
   Open order  PK=CUSTOMER#<sub>  SK=OPEN#<rid>  orderId, orderNumber
               One open order per customer per restaurant; deleted when the order reaches a final status.
 
@@ -91,7 +91,7 @@ def place(customer: Principal, data: OrderCreate) -> dict:
     if lock := table.get_item(Key=lock_key).get("Item"):  # fail fast, before using up a number
         raise _open_conflict(lock)
 
-    day = hours.riyadh_date(now)
+    day = hours.business_date(now)
     number = _next_number(rid, day)
     order_id = str(uuid.uuid4())
     ts = _iso(now)
@@ -103,6 +103,7 @@ def place(customer: Principal, data: OrderCreate) -> dict:
         "businessDate": day.isoformat(),
         "restaurantId": rid,
         "restaurantName": restaurant["name"],
+        "restaurantNameAr": restaurant.get("nameAr"),
         "customerSub": customer.sub,
         "customerName": customer.name,
         "customerPhone": customer.phone,
@@ -170,9 +171,9 @@ def get_for(principal: Principal, order_id: str) -> dict:
 
 
 def for_restaurant(principal: Principal, rid: str, day: date | None = None, status: str | None = None) -> list[dict]:
-    """Staff view: one Riyadh day (default today), newest first, optional status filter."""
+    """Staff view: one business day (04:00-04:00 Riyadh; default: the current one), newest first, optional status filter."""
     require_staff(principal, rid)
-    start, end = hours.day_bounds_utc(day or hours.riyadh_date())
+    start, end = hours.day_bounds_utc(day or hours.business_date())
     kwargs = {
         "IndexName": "GSI1",
         "KeyConditionExpression": Key("GSI1PK").eq(f"RORDERS#{rid}") & Key("GSI1SK").between(start, end),

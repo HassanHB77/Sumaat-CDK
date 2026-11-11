@@ -5,16 +5,24 @@
                          '-- /*      --> private S3 bucket         (the React build, or a placeholder page)
 
 One address for site + API = no CORS in production, and the frontend calls the relative path "/api".
+
+The app reads /config.json at startup (Cognito ids, region, map key), written here from the other stacks,
+so nobody copies ids by hand. index.html + config.json are never cached; /assets/* (hashed names) are cached
+for a year.
 """
 
 from pathlib import Path
 
-from aws_cdk import CfnOutput, RemovalPolicy, Stack
+from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudfront_origins as origins
+from aws_cdk import aws_cognito as cognito
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_location as location
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_s3_deployment as s3deploy
+from aws_cdk import custom_resources as cr
 from cdk_nag import NagSuppressions
 from constructs import Construct
 
@@ -22,6 +30,9 @@ ROOT = Path(__file__).resolve().parent.parent
 FUNCTIONS = Path(__file__).resolve().parent / "cf_functions"
 WEB_DIST = ROOT / "web" / "dist"  # the React build (Step 7)
 WEB_PLACEHOLDER = ROOT / "web" / "placeholder"  # until then
+DEV_ORIGIN = "http://localhost:5173"  # Vite dev server (map key referer)
+NO_CACHE = [s3deploy.CacheControl.no_cache()]
+LONG_CACHE = [s3deploy.CacheControl.from_string("public, max-age=31536000, immutable")]
 
 
 def site_source_dir() -> Path:
@@ -30,7 +41,16 @@ def site_source_dir() -> Path:
 
 
 class WebStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, *, api: apigw.RestApi, **kwargs) -> None:
+    def __init__(
+        self,
+        scope: Construct,
+        construct_id: str,
+        *,
+        api: apigw.RestApi,
+        user_pool: cognito.IUserPool,
+        user_pool_client: cognito.IUserPoolClient,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         bucket = s3.Bucket(
@@ -88,18 +108,89 @@ class WebStack(Stack):
             },
         )
 
-        s3deploy.BucketDeployment(
+        site_url = f"https://{self.distribution.distribution_domain_name}"
+        map_key = self._map_key(site_url)
+
+        # 1) Hashed build files (/assets/*): cached for a year; their names change on every build.
+        assets = s3deploy.BucketDeployment(
+            self,
+            "DeployAssets",
+            sources=[s3deploy.Source.asset(str(site_source_dir()))],
+            include=["assets/*"],
+            exclude=["*"],
+            destination_bucket=bucket,
+            cache_control=LONG_CACHE,
+            prune=False,  # two deployments share the bucket; don't delete each other's files
+        )
+        # 2) Everything else (index.html, favicon ...) + the generated config.json: never cached, so a
+        #    deploy is visible at once. Runs after the assets so a new index.html never points to missing files.
+        pages = s3deploy.BucketDeployment(
             self,
             "DeploySite",
-            sources=[s3deploy.Source.asset(str(site_source_dir()))],
+            sources=[
+                s3deploy.Source.asset(str(site_source_dir()), exclude=["assets/*"]),
+                s3deploy.Source.json_data(
+                    "config.json",
+                    {
+                        "region": self.region,
+                        "userPoolId": user_pool.user_pool_id,
+                        "userPoolClientId": user_pool_client.user_pool_client_id,
+                        "locationApiKey": map_key,
+                        "apiBase": "/api",
+                    },
+                ),
+            ],
             destination_bucket=bucket,
+            cache_control=NO_CACHE,
+            prune=False,
             distribution=self.distribution,
             distribution_paths=["/*"],  # refresh CloudFront after every upload
         )
+        pages.node.add_dependency(assets)
 
-        CfnOutput(self, "SiteUrl", value=f"https://{self.distribution.distribution_domain_name}")
+        CfnOutput(self, "SiteUrl", value=site_url)
 
         self._suppress_nag()
+
+    def _map_key(self, site_url: str) -> str:
+        """Amazon Location (Maps v2) API key for the browser map, and its value for config.json.
+
+        The key is public by design (it ships to every browser), so it is locked down: map tiles only,
+        and only from our site and the local dev server.
+        """
+        key = location.CfnAPIKey(
+            self,
+            "MapKey",
+            key_name="sumaat-web-maps",
+            description="Browser map tiles for the Sumaat website",
+            no_expiry=True,
+            restrictions=location.CfnAPIKey.ApiKeyRestrictionsProperty(
+                allow_actions=["geo-maps:GetTile", "geo-maps:GetStaticMap"],
+                allow_resources=[f"arn:aws:geo-maps:{self.region}::provider/default"],
+                allow_referers=[f"{site_url}/*", f"{DEV_ORIGIN}/*"],
+            ),
+        )
+        # CloudFormation can't return the key's value, so read it once with an SDK call at deploy time.
+        describe = cr.AwsSdkCall(
+            service="Location",
+            action="describeKey",
+            parameters={"KeyName": key.key_name},
+            physical_resource_id=cr.PhysicalResourceId.of(key.key_name),
+            logging=cr.Logging.with_data_hidden(),  # don't write the key into CloudWatch
+        )
+        value = cr.AwsCustomResource(
+            self,
+            "MapKeyValue",
+            on_create=describe,
+            on_update=describe,
+            policy=cr.AwsCustomResourcePolicy.from_statements(
+                [iam.PolicyStatement(actions=["geo:DescribeKey"], resources=[key.attr_key_arn])]
+            ),
+            install_latest_aws_sdk=False,
+            timeout=Duration.minutes(2),
+        )
+        value.node.add_dependency(key)
+        return value.get_response_field("Key")
 
     def _suppress_nag(self) -> None:
         NagSuppressions.add_stack_suppressions(
@@ -130,8 +221,8 @@ class WebStack(Stack):
                 },
                 {
                     "id": "AwsSolutions-IAM4",
-                    "reason": "CDK-managed helper Lambdas (bucket upload, auto-delete objects) use the AWS-managed "
-                    "basic execution role (CloudWatch Logs only).",
+                    "reason": "CDK-managed helper Lambdas (bucket upload, auto-delete objects, map key lookup) use "
+                    "the AWS-managed basic execution role (CloudWatch Logs only).",
                     "appliesTo": [
                         "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
                     ],
@@ -143,8 +234,8 @@ class WebStack(Stack):
                 },
                 {
                     "id": "AwsSolutions-L1",
-                    "reason": "Runtime of CDK-managed helper Lambdas (BucketDeployment, auto-delete) is chosen by "
-                    "the CDK library.",
+                    "reason": "Runtime of CDK-managed helper Lambdas (BucketDeployment, auto-delete, "
+                    "AwsCustomResource) is chosen by the CDK library.",
                 },
             ],
         )

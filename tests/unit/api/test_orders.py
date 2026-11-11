@@ -24,6 +24,7 @@ def test_place_order(shop, customer):
         ("Fries", 1, 900),
     ]
     assert o["customerName"] == "Sara" and o["customerPhone"] == "+966500000001"  # from the token
+    assert (o["restaurantName"], o["restaurantNameAr"]) == ("Hofuf Burger Lab", "مختبر برجر الهفوف")
     assert o["note"] == "No onions please"
     assert [h["status"] for h in o["statusHistory"]] == ["PLACED"]
     assert "customerEmail" not in o  # stored, never returned
@@ -188,15 +189,21 @@ def test_staff_list_today_date_and_status(shop, placed, make_client, clock):
     assert owner.get(f"/restaurants/{rid}/orders", params={"status": "NOPE"}).status_code == 422
 
 
-def test_late_night_order_belongs_to_that_riyadh_day(shop, make_client, clock):
-    clock.set(datetime(2026, 11, 12, 23, 30, tzinfo=RIYADH))  # 20:30 UTC
-    o = make_client(app, sara("night-owl")).post("/orders", json=order_body(shop)).json()
-    assert o["businessDate"] == "2026-11-12"
-    listed = shop["owner"].get(f"/restaurants/{shop['rid']}/orders", params={"date": "2026-11-12"}).json()
-    assert o["id"] in [x["id"] for x in listed]
-    clock.set(datetime(2026, 11, 13, 0, 30, tzinfo=RIYADH))  # after midnight: new day, new numbering
-    o2 = make_client(app, sara("night-owl-2")).post("/orders", json=order_body(shop)).json()
-    assert (o2["businessDate"], o2["orderNumber"]) == ("2026-11-13", 1)
+def test_the_night_stays_one_business_day_until_4am(shop, make_client, clock):
+    owner, rid = shop["owner"], shop["rid"]
+    clock.set(datetime(2026, 11, 12, 23, 30, tzinfo=RIYADH))
+    o1 = make_client(app, sara("night-1")).post("/orders", json=order_body(shop)).json()
+    clock.set(datetime(2026, 11, 13, 0, 30, tzinfo=RIYADH))  # after midnight, before 04:00 -> still the 12th
+    o2 = make_client(app, sara("night-2")).post("/orders", json=order_body(shop)).json()
+    assert (o1["businessDate"], o1["orderNumber"]) == ("2026-11-12", 1)
+    assert (o2["businessDate"], o2["orderNumber"]) == ("2026-11-12", 2)  # numbering continues
+    # The counter's "today" at 00:30 still shows the whole night.
+    assert [x["id"] for x in owner.get(f"/restaurants/{rid}/orders").json()] == [o2["id"], o1["id"]]
+
+    clock.set(datetime(2026, 11, 13, 16, 0, tzinfo=RIYADH))  # next afternoon: new business day
+    o3 = make_client(app, sara("day-2")).post("/orders", json=order_body(shop)).json()
+    assert (o3["businessDate"], o3["orderNumber"]) == ("2026-11-13", 1)
+    assert [x["id"] for x in owner.get(f"/restaurants/{rid}/orders", params={"date": "2026-11-12"}).json()] == [o2["id"], o1["id"]]
 
 
 @pytest.mark.parametrize("claims", [sara(), owner_claims(sub="owner-sub-2")])

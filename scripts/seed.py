@@ -141,9 +141,9 @@ def seed(table, cognito=None, pool_id: str | None = None, password: str | None =
     # ADD on a string set is a union: re-running never removes categories added by hand.
     table.update_item(
         Key={"PK": "CONFIG", "SK": "CATEGORIES"},
-        UpdateExpression="ADD categories :c SET #t = :t",
+        UpdateExpression="ADD categories :c SET #t = :t, displayOrder = :o",
         ExpressionAttributeNames={"#t": "type"},
-        ExpressionAttributeValues={":c": set(CATEGORIES), ":t": "CONFIG"},
+        ExpressionAttributeValues={":c": set(CATEGORIES), ":t": "CONFIG", ":o": CATEGORIES},
     )
 
     for r in RESTAURANTS:

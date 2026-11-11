@@ -204,9 +204,10 @@ class OrderOut(BaseModel):
 
     id: str
     orderNumber: int
-    businessDate: str  # Riyadh date; numbers restart at #1 every day
+    businessDate: str  # business day (04:00-04:00 Riyadh); numbers restart at #1 every business day
     restaurantId: str
     restaurantName: str
+    restaurantNameAr: str | None = None  # orders placed before Step 7 don't have it
     customerName: str | None = None
     customerPhone: str | None = None
     items: list[OrderLine]

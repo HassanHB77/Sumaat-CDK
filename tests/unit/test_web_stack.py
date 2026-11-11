@@ -17,7 +17,7 @@ def stack() -> WebStack:
     data = DataStack(app, "SumaatData", env=ENV)
     auth = AuthStack(app, "SumaatAuth", env=ENV)
     api = ApiStack(app, "SumaatApi", table=data.table, user_pool=auth.user_pool, env=ENV)
-    web = WebStack(app, "SumaatWeb", api=api.api, env=ENV)
+    web = WebStack(app, "SumaatWeb", api=api.api, user_pool=auth.user_pool, user_pool_client=auth.client, env=ENV)
     apply_project_guards(app)
     app.synth()
     return web
@@ -94,6 +94,37 @@ def test_two_cloudfront_functions(template):
 
 def test_site_upload_invalidates_cache(template):
     template.has_resource_properties("Custom::CDKBucketDeployment", {"DistributionPaths": ["/*"]})
+
+
+def test_cache_headers_split(template):
+    deployments = [d["Properties"] for d in template.find_resources("Custom::CDKBucketDeployment").values()]
+    assert len(deployments) == 2
+    controls = sorted(d["SystemMetadata"]["cache-control"] for d in deployments)
+    assert controls == ["no-cache", "public, max-age=31536000, immutable"]
+    assert all(d["Prune"] is False for d in deployments)  # they share the bucket
+
+
+def test_map_key_locked_down(template):
+    (key,) = template.find_resources("AWS::Location::APIKey").values()
+    p = key["Properties"]
+    assert p["NoExpiry"] is True
+    r = p["Restrictions"]
+    assert r["AllowActions"] == ["geo-maps:GetTile", "geo-maps:GetStaticMap"]
+    assert r["AllowResources"] == ["arn:aws:geo-maps:us-east-1::provider/default"]
+    assert len(r["AllowReferers"]) == 2 and "http://localhost:5173/*" in r["AllowReferers"]
+
+
+def test_map_key_value_read_with_least_privilege(template):
+    template.has_resource_properties(
+        "AWS::IAM::Policy",
+        {
+            "PolicyDocument": {
+                "Statement": Match.array_with(
+                    [Match.object_like({"Action": "geo:DescribeKey", "Resource": Match.any_value()})]
+                )
+            }
+        },
+    )
 
 
 def test_placeholder_until_react_build_exists():

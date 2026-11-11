@@ -6,7 +6,7 @@ Item shapes (see README / design doc):
   Cashier     PK=RESTAURANT#<id>  SK=CASHIER#<sub>  status active|disabled (checked on every staff action)
   Order       PK=ORDER#<id>       SK=ORDER     GSI1=RORDERS#<rid> / <createdAt>   (restaurant's list)
                                                GSI2=CORDERS#<sub> / <createdAt>   (customer's list)
-  Counter     PK=RESTAURANT#<id>  SK=COUNTER#<YYYY-MM-DD>  seq  (daily order numbers, Riyadh date)
+  Counter     PK=RESTAURANT#<id>  SK=COUNTER#<YYYY-MM-DD>  seq  (daily order numbers, business day 04:00-04:00 Riyadh)
   Open order  PK=CUSTOMER#<sub>   SK=OPEN#<rid>  (one open order per customer per restaurant)
   Owner lock  PK=OWNER#<sub>      SK=RESTAURANT  (one restaurant per owner; written with the profile)
   Config      PK=CONFIG           SK=CATEGORIES  categories={string set}  (menu categories)

@@ -39,14 +39,20 @@ def open_now(restaurant: dict, now: datetime | None = None) -> bool:
     return not restaurant.get("isPaused", False) and is_within_hours(restaurant["hours"], now)
 
 
-def riyadh_date(now: datetime | None = None) -> date:
-    """The business day in Riyadh (orders after midnight belong to the new day)."""
-    return (now or riyadh_now()).astimezone(RIYADH).date()
+# The business day starts at 04:00 Riyadh, not midnight: a restaurant open 13:00-01:00 keeps one day
+# (one order numbering, one "today" list) for the whole night. Orders 00:00-03:59 belong to the day before.
+DAY_START_HOUR = 4
+
+
+def business_date(now: datetime | None = None) -> date:
+    """The business day an order placed at `now` belongs to."""
+    local = (now or riyadh_now()).astimezone(RIYADH)
+    return (local - timedelta(hours=DAY_START_HOUR)).date()
 
 
 def day_bounds_utc(day: date) -> tuple[str, str]:
-    """[start, end) of a Riyadh day as UTC ISO strings, the same format as createdAt (api/clock.py)."""
-    start = datetime.combine(day, time(0, 0), RIYADH).astimezone(UTC)
+    """[start, end) of a business day (04:00 -> 04:00 Riyadh) as UTC ISO strings, same format as createdAt."""
+    start = datetime.combine(day, time(DAY_START_HOUR, 0), RIYADH).astimezone(UTC)
     end = start + timedelta(days=1)
     fmt = "%Y-%m-%dT%H:%M:%SZ"
     return start.strftime(fmt), end.strftime(fmt)

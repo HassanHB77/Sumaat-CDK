@@ -35,7 +35,7 @@ def get_order(order_id: str, user: User):
 def restaurant_orders(
     restaurant_id: str,
     user: User,
-    day: Annotated[date | None, Query(alias="date", description="Riyadh date YYYY-MM-DD (default: today)")] = None,
+    day: Annotated[date | None, Query(alias="date", description="Business day YYYY-MM-DD (04:00-04:00 Riyadh; default: the current one)")] = None,
     order_status: Annotated[OrderStatus | None, Query(alias="status")] = None,
 ):
     return orders.for_restaurant(user, restaurant_id, day, order_status)

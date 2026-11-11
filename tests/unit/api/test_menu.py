@@ -36,12 +36,22 @@ def _menu(public, rid):
 # --- GET /categories ---------------------------------------------------------
 
 
-def test_categories_public_and_sorted(setup, public):
+def test_categories_public_in_meal_order(setup, public):
     r = public.get("/categories")
     assert r.status_code == 200
-    cats = r.json()["categories"]
-    assert "Mains" in cats
-    assert cats == sorted(cats)
+    assert r.json()["categories"] == [
+        "Breakfast", "Mains", "Grills", "Sandwiches", "Mezze", "Sides", "Sweets", "Dates", "Drinks",
+    ]
+
+
+def test_category_added_by_cli_is_listed_last(setup, public):
+    table, *_ = setup
+    table.update_item(
+        Key={"PK": "CONFIG", "SK": "CATEGORIES"},
+        UpdateExpression="ADD categories :c",
+        ExpressionAttributeValues={":c": {"Soups", "Bakery"}},
+    )
+    assert public.get("/categories").json()["categories"][-3:] == ["Drinks", "Bakery", "Soups"]
 
 
 def test_categories_empty_when_not_set_up(ddb, public):

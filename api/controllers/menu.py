@@ -15,7 +15,7 @@ Owner = Annotated[Principal, Depends(require_groups("owner"))]
 
 @router.get("/categories", response_model=CategoriesOut)
 def list_categories():
-    return {"categories": sorted(categories.allowed())}
+    return {"categories": categories.ordered()}  # meal order, for menus and dropdowns
 
 
 @router.post("/restaurants/{restaurant_id}/menu", response_model=MenuItemOut, status_code=status.HTTP_201_CREATED)
