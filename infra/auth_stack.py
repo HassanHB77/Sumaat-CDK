@@ -64,14 +64,17 @@ class AuthStack(Stack):
     def _build_business_pool(self) -> None:
         self.business_pool = cognito.UserPool(
             self,
-            "BusinessPool",
+            # V2: required attributes can't be added to an existing pool, so `name` forced a new
+            # pool. A new construct id makes CloudFormation create-then-delete instead of failing.
+            "BusinessPoolV2",
             user_pool_name="sumaat-business",
             feature_plan=cognito.FeaturePlan.ESSENTIALS,
             self_sign_up_enabled=True,
             sign_in_aliases=cognito.SignInAliases(email=True),
             auto_verify=cognito.AutoVerifiedAttrs(email=True),
             standard_attributes=cognito.StandardAttributes(
-                email=cognito.StandardAttribute(required=True, mutable=True)
+                email=cognito.StandardAttribute(required=True, mutable=True),
+                fullname=cognito.StandardAttribute(required=True, mutable=True),  # Cognito "name" = full name
             ),
             custom_attributes={"restaurantId": cognito.StringAttribute(mutable=True)},
             password_policy=PASSWORD_POLICY,
@@ -95,10 +98,10 @@ class AuthStack(Stack):
             auth_flows=cognito.AuthFlow(user_srp=True),
             prevent_user_existence_errors=True,
             read_attributes=cognito.ClientAttributes()
-            .with_standard_attributes(email=True, email_verified=True)
+            .with_standard_attributes(email=True, email_verified=True, fullname=True)
             .with_custom_attributes("restaurantId"),
             # restaurantId is deliberately NOT writable: only the API sets it (Admin APIs).
-            write_attributes=cognito.ClientAttributes().with_standard_attributes(email=True),
+            write_attributes=cognito.ClientAttributes().with_standard_attributes(email=True, fullname=True),
         )
 
         post_confirmation = self._function("PostConfirmationFn", "post_confirmation")

@@ -38,7 +38,11 @@ def test_business_pool(template):
             "UserPoolTier": "ESSENTIALS",
             "MfaConfiguration": "OFF",
             "Schema": Match.array_with(
-                [Match.object_like({"Name": "restaurantId", "AttributeDataType": "String", "Mutable": True})]
+                [
+                    Match.object_like({"Name": "email", "Required": True}),
+                    Match.object_like({"Name": "name", "Required": True}),
+                    Match.object_like({"Name": "restaurantId", "AttributeDataType": "String", "Mutable": True}),
+                ]
             ),
             "LambdaConfig": {"PostConfirmation": Match.any_value()},
         },
@@ -52,6 +56,12 @@ def test_customer_pool(template):
             "UserPoolName": "sumaat-customers",
             "UsernameAttributes": ["phone_number"],
             "UserPoolTier": "ESSENTIALS",
+            "Schema": Match.array_with(
+                [
+                    Match.object_like({"Name": "name", "Required": True}),
+                    Match.object_like({"Name": "phone_number", "Required": True}),
+                ]
+            ),
             "LambdaConfig": {
                 "PreSignUp": Match.any_value(),
                 "DefineAuthChallenge": Match.any_value(),
@@ -77,6 +87,7 @@ def test_business_client_cannot_write_restaurant_id(template):
         if "custom:restaurantId" in c["Properties"].get("ReadAttributes", [])
     ]
     assert "custom:restaurantId" not in business["WriteAttributes"]
+    assert "name" in business["ReadAttributes"] and "name" in business["WriteAttributes"]
     assert business["ExplicitAuthFlows"] == ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
     assert business["GenerateSecret"] is False
 
