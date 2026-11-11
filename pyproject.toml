@@ -12,12 +12,17 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
-    "pytest>=8.4",
-    "boto3>=1.40",
-    "moto[dynamodb,cognitoidp,sns]>=5.1",
+# What the API Lambda needs at runtime (boto3 is already in the Lambda runtime).
+# After changing it: uv lock && uv export --only-group lambda --no-hashes --no-emit-project -o api/requirements.txt
+lambda = [
     "fastapi>=0.120",
     "mangum>=0.19",
+]
+dev = [
+    {include-group = "lambda"},
+    "pytest>=8.4",
+    "boto3>=1.40",
+    "moto[dynamodb,cognitoidp]>=5.1",
     "httpx>=0.28",
 ]
 

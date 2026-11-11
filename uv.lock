@@ -844,6 +844,10 @@ dev = [
     { name = "moto", extra = ["cognitoidp", "dynamodb"] },
     { name = "pytest" },
 ]
+lambda = [
+    { name = "fastapi" },
+    { name = "mangum" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -859,8 +863,12 @@ dev = [
     { name = "fastapi", specifier = ">=0.120" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "mangum", specifier = ">=0.19" },
-    { name = "moto", extras = ["dynamodb", "cognitoidp", "sns"], specifier = ">=5.1" },
+    { name = "moto", extras = ["dynamodb", "cognitoidp"], specifier = ">=5.1" },
     { name = "pytest", specifier = ">=8.4" },
+]
+lambda = [
+    { name = "fastapi", specifier = ">=0.120" },
+    { name = "mangum", specifier = ">=0.19" },
 ]
 
 [[package]]
