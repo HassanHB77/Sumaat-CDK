@@ -22,6 +22,7 @@ Pool = Literal["business", "customer"]
 @dataclass(frozen=True)
 class Principal:
     sub: str
+    username: str  # Cognito username (a UUID in the business pool, the phone in the customer pool)
     name: str | None
     pool: Pool
     groups: frozenset[str]
@@ -61,6 +62,7 @@ def principal_from(request: Request) -> Principal:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown token issuer")
     return Principal(
         sub=claims["sub"],
+        username=claims.get("cognito:username") or claims["sub"],
         name=claims.get("name"),
         pool=pool,
         groups=parse_groups(claims.get("cognito:groups")),

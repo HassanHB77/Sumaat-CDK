@@ -1,8 +1,13 @@
+import os
+
+import boto3
 import pytest
 from fastapi.testclient import TestClient
+from moto import mock_aws
 
 from api import aws
 from api.settings import get_settings
+from tests.ddb import create_table
 
 BUSINESS_POOL = "us-east-1_TESTBIZ"
 CUSTOMER_POOL = "us-east-1_TESTCUS"
@@ -22,7 +27,15 @@ def api_env(monkeypatch):
 
 
 def owner_claims(sub="owner-sub-1", groups="owner", restaurant_id=None) -> dict:
-    claims = {"sub": sub, "iss": ISS.format(BUSINESS_POOL), "name": "Test Owner", "cognito:groups": groups}
+    # Pool id read at call time: the `ddb` fixture swaps in moto's generated pool id.
+    # cognito:username == sub here; in the real business pool the username is also a UUID.
+    claims = {
+        "sub": sub,
+        "cognito:username": sub,
+        "iss": ISS.format(os.environ["BUSINESS_POOL_ID"]),
+        "name": "Test Owner",
+        "cognito:groups": groups,
+    }
     if restaurant_id:
         claims["custom:restaurantId"] = restaurant_id
     return claims
@@ -51,3 +64,24 @@ def make_client():
         return TestClient(with_claims(app, claims))
 
     return _make
+
+
+@pytest.fixture
+def ddb(monkeypatch):
+    """moto table `sumaat` + moto business pool with users owner-sub-1, owner-sub-2 (owners), cashier-sub-1."""
+    with mock_aws():
+        table = create_table(boto3.resource("dynamodb", region_name="us-east-1"))
+        cognito = boto3.client("cognito-idp", region_name="us-east-1")
+        pool_id = cognito.create_user_pool(
+            PoolName="sumaat-business",
+            Schema=[{"Name": "restaurantId", "AttributeDataType": "String", "Mutable": True}],
+        )["UserPool"]["Id"]
+        for group in ("owner", "cashier"):
+            cognito.create_group(UserPoolId=pool_id, GroupName=group)
+        for username in ("owner-sub-1", "owner-sub-2", "cashier-sub-1"):
+            cognito.admin_create_user(UserPoolId=pool_id, Username=username, MessageAction="SUPPRESS")
+
+        monkeypatch.setenv("BUSINESS_POOL_ID", pool_id)
+        for cached in (get_settings, aws.table, aws.cognito):
+            cached.cache_clear()
+        yield table, cognito, pool_id

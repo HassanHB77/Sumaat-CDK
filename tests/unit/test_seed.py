@@ -5,35 +5,15 @@ from moto import mock_aws
 
 from scripts.seed import seed, stable_id
 from scripts.seed_data import COUNTER_START, RESTAURANTS
+from tests.ddb import create_table
 
 PASSWORD = "Test#Pass2026"
-
-
-def _create_table(ddb):
-    gsi = lambda n: {  # noqa: E731
-        "IndexName": f"GSI{n}",
-        "KeySchema": [
-            {"AttributeName": f"GSI{n}PK", "KeyType": "HASH"},
-            {"AttributeName": f"GSI{n}SK", "KeyType": "RANGE"},
-        ],
-        "Projection": {"ProjectionType": "ALL"},
-    }
-    return ddb.create_table(
-        TableName="sumaat",
-        BillingMode="PAY_PER_REQUEST",
-        KeySchema=[{"AttributeName": "PK", "KeyType": "HASH"}, {"AttributeName": "SK", "KeyType": "RANGE"}],
-        AttributeDefinitions=[
-            {"AttributeName": a, "AttributeType": "S"}
-            for a in ("PK", "SK", "GSI1PK", "GSI1SK", "GSI2PK", "GSI2SK")
-        ],
-        GlobalSecondaryIndexes=[gsi(1), gsi(2)],
-    )
 
 
 @pytest.fixture
 def env():
     with mock_aws():
-        table = _create_table(boto3.resource("dynamodb", region_name="us-east-1"))
+        table = create_table(boto3.resource("dynamodb", region_name="us-east-1"))
         cognito = boto3.client("cognito-idp", region_name="us-east-1")
         pool_id = cognito.create_user_pool(
             PoolName="sumaat-business",

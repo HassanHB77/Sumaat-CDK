@@ -6,6 +6,7 @@ Item shapes (see README / design doc):
   Order       PK=ORDER#<id>       SK=ORDER     GSI1=RORDERS#<rid> / <createdAt>
                                                GSI2=CORDERS#<sub> / <createdAt>
   Counter     PK=RESTAURANT#<id>  SK=COUNTER
+  Owner lock  PK=OWNER#<sub>      SK=RESTAURANT  (one restaurant per owner; written with the profile)
 """
 
 from aws_cdk import RemovalPolicy, Stack

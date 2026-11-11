@@ -22,3 +22,7 @@ class Forbidden(ApiError):
 
 class Conflict(ApiError):
     status_code = 409
+
+
+class Invalid(ApiError):
+    status_code = 422
