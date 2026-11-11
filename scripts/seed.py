@@ -58,7 +58,7 @@ def restaurant_item(r: dict, owner_sub: str | None, ts: str) -> dict:
         "lng": Decimal(str(r["lng"])),
         "geohash": encode(r["lat"], r["lng"], 7),
         "hours": r["hours"],
-        "isOpen": True,
+        "isPaused": False,
         "GSI1PK": f"GEO#{encode(r['lat'], r['lng'])}",
         "GSI1SK": f"RESTAURANT#{rid}",
         "createdAt": ts,

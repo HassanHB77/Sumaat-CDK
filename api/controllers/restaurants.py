@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
-from api.auth import Principal, require_groups
+from api.auth import Principal, require_groups, require_user
 from api.models import (
     MAX_RADIUS_KM,
     Lat,
@@ -20,6 +20,7 @@ from api.services import restaurants
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
 
 Owner = Annotated[Principal, Depends(require_groups("owner"))]
+User = Annotated[Principal, Depends(require_user())]  # staff check (owner/cashier of THIS restaurant) is in the service
 
 
 @router.get("", response_model=list[NearbyRestaurant])
@@ -44,3 +45,15 @@ def create(body: RestaurantCreate, owner: Owner):
 @router.patch("/{restaurant_id}", response_model=RestaurantOut)
 def update(restaurant_id: str, body: RestaurantUpdate, owner: Owner):
     return restaurants.update(owner, restaurant_id, body)
+
+
+@router.post("/{restaurant_id}/pause", response_model=RestaurantOut)
+def pause(restaurant_id: str, user: User):
+    """Stop taking new orders now (orders already placed stay)."""
+    return restaurants.set_paused(user, restaurant_id, True)
+
+
+@router.post("/{restaurant_id}/resume", response_model=RestaurantOut)
+def resume(restaurant_id: str, user: User):
+    """Follow the opening hours again."""
+    return restaurants.set_paused(user, restaurant_id, False)

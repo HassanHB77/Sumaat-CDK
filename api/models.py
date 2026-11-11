@@ -39,7 +39,6 @@ class RestaurantCreate(_In):
     lat: Lat
     lng: Lng
     hours: Hours
-    isOpen: bool = True
 
 
 class RestaurantUpdate(_In):
@@ -51,7 +50,6 @@ class RestaurantUpdate(_In):
     lat: Lat | None = None
     lng: Lng | None = None
     hours: Hours | None = None
-    isOpen: bool | None = None
 
 
 class MenuItemCreate(_In):
@@ -100,7 +98,8 @@ class RestaurantOut(BaseModel):
     lat: float
     lng: float
     hours: str
-    isOpen: bool
+    isPaused: bool = False  # staff pressed "Pause" (stop new orders now)
+    openNow: bool  # taking orders right now: not paused AND inside hours (Riyadh time)
     createdAt: str
     updatedAt: str
 

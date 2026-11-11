@@ -14,12 +14,13 @@ from decimal import Decimal
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
-from api import aws, geo
+from api import aws, geo, hours
 from api.auth import Principal
 from api.clock import now_iso
 from api.errors import Conflict, Forbidden, Invalid, NotFound
 from api.models import RestaurantCreate, RestaurantUpdate
 from api.services.ddb import set_expression
+from api.services.staff import require_staff
 from api.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,11 @@ def _geo_fields(lat: float, lng: float) -> dict:
     }
 
 
+def with_status(item: dict) -> dict:
+    """Add the computed fields every restaurant response carries."""
+    return {**item, "isPaused": item.get("isPaused", False), "openNow": hours.open_now(item)}
+
+
 # --- reads (public) ----------------------------------------------------------
 
 
@@ -65,7 +71,7 @@ def near(lat: float, lng: float, radius_km: float) -> list[dict]:
     for item in found.values():
         d = geo.distance_km(lat, lng, float(item["lat"]), float(item["lng"]))
         if d <= radius_km:
-            out.append({**item, "distanceKm": round(d, 2)})
+            out.append({**with_status(item), "distanceKm": round(d, 2)})
     return sorted(out, key=lambda r: r["distanceKm"])
 
 
@@ -76,7 +82,7 @@ def get(rid: str) -> dict:
     if profile is None:
         raise NotFound("Restaurant not found")
     menu = sorted((i for i in items if i["SK"].startswith("ITEM#")), key=lambda i: (i["category"], i["name"]))
-    return {**profile, "menu": menu}
+    return {**with_status(profile), "menu": menu}
 
 
 # --- writes (owner) ----------------------------------------------------------
@@ -95,6 +101,7 @@ def create(owner: Principal, data: RestaurantCreate) -> dict:
         **_geo_fields(data.lat, data.lng),
         "GSI1SK": f"RESTAURANT#{rid}",
         "ownerSub": owner.sub,
+        "isPaused": False,
         "createdAt": ts,
         "updatedAt": ts,
     }
@@ -130,7 +137,7 @@ def create(owner: Principal, data: RestaurantCreate) -> dict:
     except ClientError as e:
         logger.warning("Could not set custom:restaurantId for new restaurant %s: %s", rid, e.response["Error"]["Code"])
 
-    return profile
+    return with_status(profile)
 
 
 def load_owned(owner: Principal, rid: str) -> dict:
@@ -169,4 +176,17 @@ def update(owner: Principal, rid: str, data: RestaurantUpdate) -> dict:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             raise Forbidden("Not your restaurant") from e
         raise
-    return res["Attributes"]
+    return with_status(res["Attributes"])
+
+
+def set_paused(principal: Principal, rid: str, paused: bool) -> dict:
+    """Pause (stop new orders now) or resume (follow opening hours again). Owner or active cashier."""
+    require_staff(principal, rid)
+    res = aws.table().update_item(
+        Key={"PK": _pk(rid), "SK": "PROFILE"},
+        UpdateExpression="SET isPaused = :p, updatedAt = :t",
+        ConditionExpression="attribute_exists(PK)",
+        ExpressionAttributeValues={":p": paused, ":t": now_iso()},
+        ReturnValues="ALL_NEW",
+    )
+    return with_status(res["Attributes"])

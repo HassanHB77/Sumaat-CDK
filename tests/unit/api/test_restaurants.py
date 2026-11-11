@@ -105,7 +105,8 @@ def test_create_writes_profile_counter_lock_and_cognito_attr(ddb, owner, public)
     r = owner.post("/restaurants", json=NEW)
     assert r.status_code == 201
     rid = r.json()["id"]
-    assert r.json()["isOpen"] is True
+    assert r.json()["isPaused"] is False
+    assert isinstance(r.json()["openNow"], bool)
 
     pk = f"RESTAURANT#{rid}"
     profile = table.get_item(Key={"PK": pk, "SK": "PROFILE"})["Item"]
@@ -174,12 +175,12 @@ def created(ddb, owner):
     return owner.post("/restaurants", json=NEW).json()
 
 
-def test_owner_can_rename_and_close(created, owner, monkeypatch):
+def test_owner_can_rename_and_change_hours(created, owner, monkeypatch):
     monkeypatch.setattr("api.services.restaurants.now_iso", lambda: "2099-01-01T00:00:00Z")
-    r = owner.patch(f"/restaurants/{created['id']}", json={"name": "Renamed", "isOpen": False})
+    r = owner.patch(f"/restaurants/{created['id']}", json={"name": "Renamed", "hours": "10:00-22:00"})
     assert r.status_code == 200
     assert r.json()["name"] == "Renamed"
-    assert r.json()["isOpen"] is False
+    assert r.json()["hours"] == "10:00-22:00"
     assert r.json()["updatedAt"] == "2099-01-01T00:00:00Z"
     assert r.json()["createdAt"] == created["createdAt"]
     assert r.json()["nameAr"] == NEW["nameAr"]  # untouched
@@ -213,3 +214,8 @@ def test_moving_restaurant_updates_geo_index(ddb, created, owner, public):
     assert profile["geohash"].startswith("the28")
     near = public.get("/restaurants", params={"lat": 25.4086, "lng": 49.5823, "radiusKm": 0.5}).json()
     assert [x["id"] for x in near] == [rid]
+
+
+def test_patch_no_longer_accepts_is_open(created, owner):
+    # Open/closed is now automatic (hours) + pause/resume; the old flag is rejected.
+    assert owner.patch(f"/restaurants/{created['id']}", json={"isOpen": False}).status_code == 422
