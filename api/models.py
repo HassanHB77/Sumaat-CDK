@@ -216,3 +216,7 @@ class OrderOut(BaseModel):
     statusHistory: list[StatusChange]
     createdAt: str
     updatedAt: str
+
+
+class RejectBody(_In):
+    reason: Annotated[str, Field(max_length=200)] | None = None

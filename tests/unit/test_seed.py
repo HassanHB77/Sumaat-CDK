@@ -34,8 +34,9 @@ def test_seed_writes_everything(env):
     n_items = sum(len(r["items"]) for r in RESTAURANTS)
     assert summary["restaurants"] == 3
     assert summary["items"] == n_items
-    # profiles + items + owner locks + CONFIG/CATEGORIES (daily order counters are created by the API)
-    assert table.scan(Select="COUNT")["Count"] == 3 + n_items + 3 + 1
+    # profiles + items + owner locks + cashier records + CONFIG/CATEGORIES (order counters come from the API)
+    assert table.scan(Select="COUNT")["Count"] == 3 + n_items + 3 + 3 + 1
+    assert len(summary["cashiers"]) == 3 and summary["customers"] == ["sara@example.com", "omar@example.com"]
 
 
 def test_restaurant_page_is_one_query(env):
@@ -88,7 +89,7 @@ def test_rerun_is_idempotent_and_keeps_daily_counters(env):
     seed(table, cognito, pool_id, PASSWORD)
     assert table.scan(Select="COUNT")["Count"] == before
     assert table.get_item(Key=key)["Item"]["seq"] == 5  # the seed never touches order numbers
-    assert len(cognito.list_users(UserPoolId=pool_id)["Users"]) == 3
+    assert len(cognito.list_users(UserPoolId=pool_id)["Users"]) == 3 + 3 + 2  # owners, cashiers, customers
 
 
 def test_categories_cover_seed_data_and_survive_rerun(env):
@@ -113,3 +114,35 @@ def test_rerun_removes_old_customer_group_from_owners(env):
     seed(table, cognito, pool_id, PASSWORD)
     groups = cognito.admin_list_groups_for_user(UserPoolId=pool_id, Username=email)["Groups"]
     assert [g["GroupName"] for g in groups] == ["owner"]
+
+
+def _groups(cognito, pool_id, email):
+    return [g["GroupName"] for g in cognito.admin_list_groups_for_user(UserPoolId=pool_id, Username=email)["Groups"]]
+
+
+def test_demo_cashiers_ready_to_work(env):
+    table, cognito, pool_id = env
+    seed(table, cognito, pool_id, PASSWORD)
+    rid = stable_id("restaurant", "nakhla-kitchen")
+    email = "cashier.nakhla@example.com"
+    user = cognito.admin_get_user(UserPoolId=pool_id, Username=email)
+    attrs = {a["Name"]: a["Value"] for a in user["UserAttributes"]}
+    assert attrs["custom:restaurantId"] == rid
+    assert _groups(cognito, pool_id, email) == ["cashier"]
+    record = table.get_item(Key={"PK": f"RESTAURANT#{rid}", "SK": f"CASHIER#{attrs['sub']}"})["Item"]
+    assert record["status"] == "active" and record["username"] == user["Username"]
+
+
+def test_demo_customers(env):
+    table, cognito, pool_id = env
+    seed(table, cognito, pool_id, PASSWORD)
+    for email in ("sara@example.com", "omar@example.com"):
+        assert _groups(cognito, pool_id, email) == ["customer"]
+
+
+def test_rerun_keeps_one_record_per_cashier(env):
+    table, cognito, pool_id = env
+    seed(table, cognito, pool_id, PASSWORD)
+    seed(table, cognito, pool_id, PASSWORD)
+    cashiers = [i for i in table.scan()["Items"] if i["SK"].startswith("CASHIER#")]
+    assert len(cashiers) == 3  # same sub -> same record, no duplicates

@@ -6,54 +6,7 @@ from api.handler import app
 from api.hours import RIYADH
 from api.services.orders import open_lock_key
 from api.services.staff import cashier_key
-from scripts.seed import seed
-from tests.unit.api.conftest import customer_claims, owner_claims
-from tests.unit.api.test_restaurants import NEW  # hours 16:00-02:00
-
-DISH = {"name": "Smash Burger", "nameAr": "برجر", "category": "Mains", "priceHalalas": 2500}
-FRIES = {"name": "Fries", "nameAr": "بطاطس", "category": "Sides", "priceHalalas": 900}
-THU_18 = datetime(2026, 11, 12, 18, 0, tzinfo=RIYADH)
-
-
-def sara(sub="customer-sub-1"):
-    return {**customer_claims(sub), "email": "sara@example.com"}
-
-
-@pytest.fixture
-def clock(monkeypatch):
-    """Riyadh time used by the API; tests can move it with clock.set(...)."""
-
-    class Clock:
-        now = THU_18
-
-        def set(self, dt):
-            self.now = dt
-
-    c = Clock()
-    monkeypatch.setattr("api.hours.riyadh_now", lambda: c.now)
-    return c
-
-
-@pytest.fixture
-def shop(ddb, make_client, clock):
-    """A restaurant (owner-sub-1) with 2 menu items, open at 18:00."""
-    table, *_ = ddb
-    seed(table)  # categories (+ the 3 demo restaurants)
-    owner = make_client(app, owner_claims())
-    rid = owner.post("/restaurants", json=NEW).json()["id"]
-    burger = owner.post(f"/restaurants/{rid}/menu", json=DISH).json()["id"]
-    fries = owner.post(f"/restaurants/{rid}/menu", json=FRIES).json()["id"]
-    return {"table": table, "owner": owner, "rid": rid, "burger": burger, "fries": fries}
-
-
-def order_body(shop, **extra):
-    return {"restaurantId": shop["rid"], "items": [{"itemId": shop["burger"], "qty": 2}, {"itemId": shop["fries"], "qty": 1}], **extra}
-
-
-@pytest.fixture
-def customer(make_client):
-    return make_client(app, sara())
-
+from tests.unit.api.conftest import NEW, DISH, order_body, owner_claims, sara  # fixtures: clock, shop, customer
 
 # --- place -------------------------------------------------------------------
 

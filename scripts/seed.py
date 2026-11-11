@@ -1,7 +1,8 @@
-"""Seed the `sumaat` table (and demo owner logins) with 3 fictional Al-Ahsa restaurants.
+"""Seed the `sumaat` table and demo logins: 3 fictional Al-Ahsa restaurants, each with an owner
+and a cashier, plus 2 demo customers. All logins use SEED_OWNER_PASSWORD.
 
 Safe to re-run: ids are deterministic (uuid5 from the slug), items are overwritten,
-existing owner users are reused.
+existing users are reused (password and group reset).
 
 Usage:
   SEED_OWNER_PASSWORD='...' uv run python scripts/seed.py            # table + owners
@@ -26,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from api.geo import encode  # noqa: E402
-from scripts.seed_data import CATEGORIES, RESTAURANTS  # noqa: E402
+from scripts.seed_data import CATEGORIES, CUSTOMERS, RESTAURANTS  # noqa: E402
 
 NAMESPACE = uuid.UUID("5b1c1d0e-6a39-4f53-9d0e-3f1f6a0c5a11")  # fixed: same slug -> same id forever
 
@@ -98,43 +99,44 @@ def menu_items(r: dict, ts: str) -> list[dict]:
 # --- writers ----------------------------------------------------------------
 
 
-def ensure_owner(cognito, pool_id: str, owner: dict, restaurant_id: str, password: str) -> str:
-    """Create (or reuse) a confirmed owner login linked to the restaurant. Returns its sub."""
-    email = owner["email"]
+def ensure_user(cognito, pool_id: str, person: dict, password: str, group: str, extra: dict | None = None) -> tuple[str, str]:
+    """Create (or reuse) a confirmed login in exactly one group. Returns (sub, cognito username).
+
+    One role per account: any other group (e.g. `customer` left over on owners from the old
+    two-role design) is removed. No email is ever sent.
+    """
+    email = person["email"]
+    attrs = {"name": person["name"], "phone_number": person["phone"], **(extra or {})}
     try:
         user = cognito.admin_get_user(UserPoolId=pool_id, Username=email)
-        attrs = user["UserAttributes"]
+        username, current = user["Username"], user["UserAttributes"]
+        cognito.admin_update_user_attributes(
+            UserPoolId=pool_id, Username=email, UserAttributes=[{"Name": k, "Value": v} for k, v in attrs.items()]
+        )
     except cognito.exceptions.UserNotFoundException:
-        attrs = cognito.admin_create_user(
+        user = cognito.admin_create_user(
             UserPoolId=pool_id,
             Username=email,
             MessageAction="SUPPRESS",  # no invitation email
             UserAttributes=[
                 {"Name": "email", "Value": email},
                 {"Name": "email_verified", "Value": "true"},
-                {"Name": "name", "Value": owner["name"]},
-                {"Name": "phone_number", "Value": owner["phone"]},  # fake demo number
-                {"Name": "custom:signupRole", "Value": "owner"},
+                *({"Name": k, "Value": v} for k, v in attrs.items()),
             ],
-        )["User"]["Attributes"]
+        )["User"]
+        username, current = user["Username"], user["Attributes"]
 
     cognito.admin_set_user_password(UserPoolId=pool_id, Username=email, Password=password, Permanent=True)
-    cognito.admin_update_user_attributes(
-        UserPoolId=pool_id,
-        Username=email,
-        UserAttributes=[{"Name": "custom:restaurantId", "Value": restaurant_id}],
-    )
-    # One role per account: exactly `owner` (removes `customer` left over from the old two-role design).
-    cognito.admin_add_user_to_group(UserPoolId=pool_id, Username=email, GroupName="owner")
-    current = cognito.admin_list_groups_for_user(UserPoolId=pool_id, Username=email)["Groups"]
-    for group in {g["GroupName"] for g in current} - {"owner"}:
-        cognito.admin_remove_user_from_group(UserPoolId=pool_id, Username=email, GroupName=group)
-    return next(a["Value"] for a in attrs if a["Name"] == "sub")
+    cognito.admin_add_user_to_group(UserPoolId=pool_id, Username=email, GroupName=group)
+    groups = cognito.admin_list_groups_for_user(UserPoolId=pool_id, Username=email)["Groups"]
+    for other in {g["GroupName"] for g in groups} - {group}:
+        cognito.admin_remove_user_from_group(UserPoolId=pool_id, Username=email, GroupName=other)
+    return next(a["Value"] for a in current if a["Name"] == "sub"), username
 
 
 def seed(table, cognito=None, pool_id: str | None = None, password: str | None = None) -> dict:
     ts = now_iso()
-    summary = {"restaurants": 0, "items": 0, "owners": []}
+    summary = {"restaurants": 0, "items": 0, "owners": [], "cashiers": [], "customers": []}
 
     # ADD on a string set is a union: re-running never removes categories added by hand.
     table.update_item(
@@ -148,7 +150,10 @@ def seed(table, cognito=None, pool_id: str | None = None, password: str | None =
         rid = stable_id("restaurant", r["slug"])
         owner_sub = None
         if cognito is not None:
-            owner_sub = ensure_owner(cognito, pool_id, r["owner"], rid, password)
+            owner_sub, _ = ensure_user(
+                cognito, pool_id, r["owner"], password, "owner",
+                {"custom:signupRole": "owner", "custom:restaurantId": rid},
+            )
             summary["owners"].append({"restaurant": r["name"], "email": r["owner"]["email"]})
 
         table.put_item(Item=restaurant_item(r, owner_sub, ts))
@@ -162,6 +167,22 @@ def seed(table, cognito=None, pool_id: str | None = None, password: str | None =
             for item in menu_items(r, ts):
                 batch.put_item(Item=item)
                 summary["items"] += 1
+
+        if cognito is not None:
+            # Same shape the API writes in POST /restaurants/{id}/cashiers (api/services/cashiers.py).
+            c = r["cashier"]
+            sub, username = ensure_user(cognito, pool_id, c, password, "cashier", {"custom:restaurantId": rid})
+            table.put_item(Item={
+                "PK": f"RESTAURANT#{rid}", "SK": f"CASHIER#{sub}", "type": "CASHIER", "sub": sub,
+                "username": username, "restaurantId": rid, "name": c["name"], "email": c["email"],
+                "phone": c["phone"], "status": "active", "createdAt": ts, "updatedAt": ts,
+            })
+            summary["cashiers"].append({"restaurant": r["name"], "email": c["email"]})
+
+    if cognito is not None:
+        for person in CUSTOMERS:
+            ensure_user(cognito, pool_id, person, password, "customer", {"custom:signupRole": "customer"})
+            summary["customers"].append(person["email"])
 
     return summary
 

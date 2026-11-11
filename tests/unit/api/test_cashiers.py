@@ -5,8 +5,7 @@ from botocore.exceptions import ClientError
 
 from api.handler import app
 from api.hours import RIYADH
-from tests.unit.api.conftest import customer_claims, owner_claims
-from tests.unit.api.test_restaurants import NEW
+from tests.unit.api.conftest import NEW, customer_claims, owner_claims
 
 CASHIER = {"name": "Fahad Cashier", "email": "cashier.one@example.com", "phone": "+966500000201", "password": "Cash#2026"}
 

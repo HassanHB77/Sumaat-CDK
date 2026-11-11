@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import boto3
 import pytest
@@ -6,7 +7,9 @@ from fastapi.testclient import TestClient
 from moto import mock_aws
 
 from api import aws
+from api.handler import app
 from api.settings import get_settings
+from api.hours import RIYADH
 from tests.ddb import create_table
 
 USER_POOL = "us-east-1_TESTPOOL"
@@ -89,3 +92,65 @@ def ddb(monkeypatch):
         for cached in (get_settings, aws.table, aws.cognito):
             cached.cache_clear()
         yield table, cognito, pool_id
+
+
+# --- shared order fixtures (test_orders.py, test_order_status.py) --------------
+
+# A restaurant open 16:00-02:00 (Riyadh). Also used by test_restaurants.py.
+NEW = {
+    "name": "Hofuf Burger Lab",
+    "nameAr": "مختبر برجر الهفوف",
+    "description": "Smash burgers.",
+    "city": "Al-Hofuf",
+    "district": "Al-Kut",
+    "lat": 25.3801,
+    "lng": 49.5870,
+    "hours": "16:00-02:00",
+}
+DISH = {"name": "Smash Burger", "nameAr": "برجر", "category": "Mains", "priceHalalas": 2500}
+FRIES = {"name": "Fries", "nameAr": "بطاطس", "category": "Sides", "priceHalalas": 900}
+THU_18 = datetime(2026, 11, 12, 18, 0, tzinfo=RIYADH)
+
+
+def sara(sub="customer-sub-1") -> dict:
+    return {**customer_claims(sub), "email": "sara@example.com"}
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    """Riyadh time used by the API; tests can move it with clock.set(...)."""
+
+    class Clock:
+        now = THU_18
+
+        def set(self, dt):
+            self.now = dt
+
+    c = Clock()
+    monkeypatch.setattr("api.hours.riyadh_now", lambda: c.now)
+    return c
+
+
+@pytest.fixture
+def shop(ddb, make_client, clock):
+    """A restaurant (owner-sub-1) with 2 menu items, open at 18:00."""
+    table, *_ = ddb
+    from scripts.seed import seed  # local import: only order tests need the seed
+
+    seed(table)  # categories (+ the 3 demo restaurants)
+    owner = make_client(app, owner_claims())
+    rid = owner.post("/restaurants", json=NEW).json()["id"]
+    burger = owner.post(f"/restaurants/{rid}/menu", json=DISH).json()["id"]
+    fries = owner.post(f"/restaurants/{rid}/menu", json=FRIES).json()["id"]
+    return {"table": table, "owner": owner, "rid": rid, "burger": burger, "fries": fries}
+
+
+def order_body(shop, **extra):
+    return {"restaurantId": shop["rid"], "items": [{"itemId": shop["burger"], "qty": 2}, {"itemId": shop["fries"], "qty": 1}], **extra}
+
+
+@pytest.fixture
+def customer(make_client):
+    return make_client(app, sara())
+
+

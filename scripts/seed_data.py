@@ -16,6 +16,7 @@ RESTAURANTS = [
         "lng": 49.5867,
         "hours": "12:00-23:30",
         "owner": {"email": "owner.nakhla@example.com", "name": "Abdullah Al-Nakhli", "phone": "+966500000101"},
+        "cashier": {"email": "cashier.nakhla@example.com", "name": "Faisal Al-Hasawi", "phone": "+966500000201"},
         "items": [
             {"slug": "hasawi-rice-chicken", "name": "Hasawi Red Rice with Chicken", "nameAr": "رز حساوي بالدجاج",
              "category": "Mains", "priceHalalas": 3500, "calories": 850, "dietTags": ["gluten_free", "high_protein"]},
@@ -42,6 +43,7 @@ RESTAURANTS = [
         "lng": 49.5741,
         "hours": "13:00-01:00",
         "owner": {"email": "owner.qaisariya@example.com", "name": "Khalid Al-Qaisi", "phone": "+966500000102"},
+        "cashier": {"email": "cashier.qaisariya@example.com", "name": "Majed Al-Rifai", "phone": "+966500000202"},
         "items": [
             {"slug": "shish-tawook", "name": "Shish Tawook Plate", "nameAr": "صحن شيش طاووق",
              "category": "Grills", "priceHalalas": 3200, "calories": 640, "dietTags": ["gluten_free", "high_protein"]},
@@ -68,6 +70,7 @@ RESTAURANTS = [
         "lng": 49.5823,
         "hours": "07:00-23:00",
         "owner": {"email": "owner.mubarraz@example.com", "name": "Noura Al-Mubarrak", "phone": "+966500000103"},
+        "cashier": {"email": "cashier.mubarraz@example.com", "name": "Reem Al-Mubarrazi", "phone": "+966500000203"},
         "items": [
             {"slug": "saudi-coffee", "name": "Saudi Coffee (dallah)", "nameAr": "قهوة سعودية (دلة)",
              "category": "Drinks", "priceHalalas": 800, "calories": 10, "dietTags": ["vegan", "gluten_free", "dairy_free"]},
@@ -87,5 +90,11 @@ RESTAURANTS = [
 
 # Menu categories owners can choose from (stored as CONFIG/CATEGORIES; extend later via CLI/console).
 CATEGORIES = ["Breakfast", "Dates", "Drinks", "Grills", "Mains", "Mezze", "Sandwiches", "Sides", "Sweets"]
+
+# Demo customers (fake emails and phones). Ordering needs a customer account (one role per account).
+CUSTOMERS = [
+    {"email": "sara@example.com", "name": "Sara Al-Qahtani", "phone": "+966500000301"},
+    {"email": "omar@example.com", "name": "Omar Al-Harbi", "phone": "+966500000302"},
+]
 
 # Order numbers: no seed needed. Each restaurant starts at #1 every day (api/services/orders.py).

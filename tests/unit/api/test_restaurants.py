@@ -2,21 +2,11 @@ import pytest
 
 from api.handler import app
 from scripts.seed import seed, stable_id
-from tests.unit.api.conftest import customer_claims, owner_claims
+from tests.unit.api.conftest import NEW, customer_claims, owner_claims
 
 NAKHLA = {"lat": 25.3797, "lng": 49.5867}
 NAKHLA_ID = stable_id("restaurant", "nakhla-kitchen")
 
-NEW = {
-    "name": "Hofuf Burger Lab",
-    "nameAr": "مختبر برجر الهفوف",
-    "description": "Smash burgers.",
-    "city": "Al-Hofuf",
-    "district": "Al-Kut",
-    "lat": 25.3801,
-    "lng": 49.5870,
-    "hours": "16:00-02:00",
-}
 
 
 @pytest.fixture

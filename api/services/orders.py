@@ -1,4 +1,4 @@
-"""Orders: place (customers) and read (customers + staff). Status changes are in Step 5.4.
+"""Orders: place (customers), read (customers + staff), and move through statuses.
 
 Items (see infra/data_stack.py):
   Order       PK=ORDER#<id>      SK=ORDER   GSI1=RORDERS#<rid>/<createdAt>  GSI2=CORDERS#<sub>/<createdAt>
@@ -187,3 +187,81 @@ def for_restaurant(principal: Principal, rid: str, day: date | None = None, stat
         if "LastEvaluatedKey" not in page:
             return items
         kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+
+
+# --- status changes ------------------------------------------------------------
+
+# action -> (allowed from, new status, who may do it)
+TRANSITIONS = {
+    "accept": ("PLACED", "ACCEPTED", "staff"),
+    "ready": ("ACCEPTED", "READY_FOR_PICKUP", "staff"),
+    "served": ("READY_FOR_PICKUP", "SERVED", "staff"),
+    "reject": ("PLACED", "REJECTED", "staff"),
+    "cancel": ("PLACED", "CANCELLED", "customer"),
+}
+
+
+def _actor_role(principal: Principal, order: dict, who: str) -> str:
+    """'customer' / 'owner' / 'cashier' if allowed; NotFound otherwise (don't reveal the order exists)."""
+    if who == "customer":
+        if order["customerSub"] == principal.sub:
+            return "customer"
+        raise NotFound("Order not found")
+    try:
+        role, _ = require_staff(principal, order["restaurantId"])
+    except (Forbidden, NotFound):
+        raise NotFound("Order not found") from None
+    return role
+
+
+def change_status(principal: Principal, order_id: str, action: str, reason: str | None = None) -> dict:
+    """Move an order one step. Only forward, only from the expected status (409 otherwise).
+
+    One transaction: the conditional status update, plus, for a final status, deleting the customer's
+    one-open-order lock so they can order at this restaurant again.
+    """
+    from_status, to_status, who = TRANSITIONS[action]
+    table = aws.table()
+    order = table.get_item(Key=order_key(order_id)).get("Item")
+    if order is None:
+        raise NotFound("Order not found")
+    role = _actor_role(principal, order, who)
+    if order["status"] != from_status:
+        raise Conflict(f"Order is {order['status']}, can't {action}")
+
+    ts = _iso(hours.riyadh_now())
+    change = {"status": to_status, "at": ts, "by": principal.sub, "role": role}
+    if reason:
+        change["reason"] = reason
+    name = table.name
+    update = {
+        "Update": {
+            "TableName": name,
+            "Key": order_key(order_id),
+            "UpdateExpression": "SET #s = :to, updatedAt = :t, statusHistory = list_append(statusHistory, :h)",
+            "ConditionExpression": "#s = :from",  # someone else may have changed it a moment ago
+            "ExpressionAttributeNames": {"#s": "status"},
+            "ExpressionAttributeValues": {":to": to_status, ":from": from_status, ":t": ts, ":h": [change]},
+        }
+    }
+    items = [update]
+    if to_status in FINAL_STATUSES:
+        items.append(
+            {
+                "Delete": {
+                    "TableName": name,
+                    "Key": open_lock_key(order["customerSub"], order["restaurantId"]),
+                    # Only this order's lock (never a newer one).
+                    "ConditionExpression": "attribute_not_exists(PK) OR orderId = :id",
+                    "ExpressionAttributeValues": {":id": order_id},
+                }
+            }
+        )
+    try:
+        table.meta.client.transact_write_items(TransactItems=items)
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "TransactionCanceledException":
+            raise
+        current = table.get_item(Key=order_key(order_id))["Item"]["status"]
+        raise Conflict(f"Order is {current}, can't {action}") from e
+    return table.get_item(Key=order_key(order_id))["Item"]

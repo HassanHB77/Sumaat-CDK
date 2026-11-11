@@ -5,8 +5,7 @@ import pytest
 from api.handler import app
 from api.hours import RIYADH
 from api.services.staff import cashier_key
-from tests.unit.api.conftest import customer_claims, owner_claims
-from tests.unit.api.test_restaurants import NEW
+from tests.unit.api.conftest import NEW, customer_claims, owner_claims
 
 
 @pytest.fixture

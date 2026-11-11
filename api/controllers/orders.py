@@ -3,10 +3,10 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Body, Depends, Query, status
 
 from api.auth import Principal, require_customer, require_user
-from api.models import OrderCreate, OrderOut, OrderStatus
+from api.models import OrderCreate, OrderOut, OrderStatus, RejectBody
 from api.services import orders
 
 router = APIRouter(tags=["orders"])
@@ -39,3 +39,31 @@ def restaurant_orders(
     order_status: Annotated[OrderStatus | None, Query(alias="status")] = None,
 ):
     return orders.for_restaurant(user, restaurant_id, day, order_status)
+
+
+# --- status changes (forward only; the frontend shows a short "Undo" countdown BEFORE calling these) ---
+
+
+@router.post("/orders/{order_id}/accept", response_model=OrderOut)
+def accept(order_id: str, user: User):
+    return orders.change_status(user, order_id, "accept")
+
+
+@router.post("/orders/{order_id}/ready", response_model=OrderOut)
+def ready(order_id: str, user: User):
+    return orders.change_status(user, order_id, "ready")
+
+
+@router.post("/orders/{order_id}/served", response_model=OrderOut)
+def served(order_id: str, user: User):
+    return orders.change_status(user, order_id, "served")
+
+
+@router.post("/orders/{order_id}/reject", response_model=OrderOut)
+def reject(order_id: str, user: User, body: Annotated[RejectBody | None, Body()] = None):
+    return orders.change_status(user, order_id, "reject", body.reason if body else None)
+
+
+@router.post("/orders/{order_id}/cancel", response_model=OrderOut)
+def cancel(order_id: str, customer: Customer):
+    return orders.change_status(customer, order_id, "cancel")
