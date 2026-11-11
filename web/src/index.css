@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* No built-in DaisyUI themes (and no dark mode): only our `sumaat` theme. */
+@plugin "daisyui" {
+  themes: false;
+}
+
+@plugin "daisyui/theme" {
+  name: "sumaat";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+
+  --color-base-100: #ffffff; /* cards, modals */
+  --color-base-200: #f8f9fa; /* page background */
+  --color-base-300: #e9ecef; /* borders */
+  --color-base-content: #111111; /* text */
+
+  --color-primary: #ff5722; /* coral: CTA, cart badge, active, "New" */
+  --color-primary-content: #ffffff;
+  --color-secondary: #1e1e24; /* dark header, dark cards */
+  --color-secondary-content: #ffffff;
+  --color-neutral: #1e1e24;
+  --color-neutral-content: #ffffff;
+  --color-accent: #f5a623; /* amber: "Preparing" */
+  --color-accent-content: #111111;
+
+  --color-info: #3b82f6;
+  --color-info-content: #ffffff;
+  --color-success: #2ecc71; /* mint: Open now, Ready */
+  --color-success-content: #0b2e1a;
+  --color-warning: #f5a623;
+  --color-warning-content: #111111;
+  --color-error: #e53935;
+  --color-error-content: #ffffff;
+
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+@theme {
+  --font-sans: "IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-muted: #6c757d; /* secondary text */
+}
+
+html,
+body {
+  @apply bg-base-200 text-base-content font-sans antialiased;
+}
+
+/* Primary buttons: white, bold, >= 17px for contrast on coral. */
+.btn-primary {
+  @apply text-[17px] font-bold;
+}
