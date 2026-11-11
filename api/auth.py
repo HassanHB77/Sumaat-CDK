@@ -4,8 +4,8 @@ API Gateway (REST, Cognito authorizer) checks the JWT signature and expiry BEFOR
 puts the decoded claims in event.requestContext.authorizer.claims. Mangum exposes the raw event as
 request.scope["aws.event"]. We trust those claims and never re-verify the JWT here.
 
-One pool (sumaat-users) for everyone; Cognito groups decide what a user may do:
-  customer (every self-signup), owner (also a customer), cashier (Step 5).
+One pool (sumaat-users) for everyone; Cognito groups decide what a user may do.
+One role per account: customer, owner, or cashier.
 We still check `iss` is our pool, as a defence against a misconfigured authorizer.
 """
 
@@ -58,7 +58,7 @@ def principal_from(request: Request) -> Principal:
 
 
 def require_user():
-    """Dependency: any signed-in user (customers, and owners/cashiers acting as customers)."""
+    """Dependency: any signed-in user, whatever their role (the service decides what they may see)."""
 
     def dep(request: Request) -> Principal:
         return principal_from(request)
@@ -78,3 +78,8 @@ def require_groups(*groups: str):
         return p
 
     return dep
+
+
+def require_customer():
+    """Dependency: a customer account (owners and cashiers use separate customer accounts to order)."""
+    return require_groups("customer")

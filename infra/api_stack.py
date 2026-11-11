@@ -20,7 +20,19 @@ from constructs import Construct
 
 API_DIR = Path(__file__).resolve().parent.parent / "api"
 RUNTIME = lambda_.Runtime.PYTHON_3_14
-DEFAULT_ORIGINS = ["http://localhost:5173"]  # Vite dev server; CloudFront URL is added in Step 6
+DEFAULT_ORIGINS = ["http://localhost:5173"]
+
+# What the API does in Cognito, and why:
+COGNITO_ADMIN_ACTIONS = [
+    "AdminUpdateUserAttributes",  # POST /restaurants sets the owner's custom:restaurantId
+    "AdminCreateUser",  # owner creates a cashier (no email sent)
+    "AdminSetUserPassword",  # cashier's first password, and owner's password reset
+    "AdminAddUserToGroup",  # put the cashier in the `cashier` group
+    "AdminDisableUser",  # owner disables a cashier
+    "AdminEnableUser",  # ... and enables them again
+    "AdminUserGlobalSignOut",  # end a disabled cashier's sessions / after a password reset
+    "AdminDeleteUser",  # clean up a half-created cashier if setup fails
+]  # Vite dev server; CloudFront URL is added in Step 6
 
 # Inside the official Lambda build image (Linux arm64): install the pinned runtime deps, then copy our code
 # into an `api/` package next to them. Handler = api.handler.handler.
@@ -79,8 +91,8 @@ class ApiStack(Stack):
         table.grant_read_write_data(fn)
         fn.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["cognito-idp:AdminUpdateUserAttributes"],  # sets custom:restaurantId on POST /restaurants
-                resources=[user_pool.user_pool_arn],
+                actions=[f"cognito-idp:{a}" for a in COGNITO_ADMIN_ACTIONS],
+                resources=[user_pool.user_pool_arn],  # this pool only
             )
         )
 

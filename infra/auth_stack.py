@@ -1,10 +1,11 @@
 """AuthStack: one Cognito user pool for everyone (customers, owners, cashiers).
 
 sumaat-users  email + password, email confirmed with a code at sign-up. Required: email, name, phone.
-Groups decide what a user can do (the frontend shows pages by group, the API enforces it):
-  customer  every self-signup (owners too: an owner can also order food with the same account)
+Groups decide what a user can do (the frontend shows pages by group, the API enforces it).
+One role per account:
+  customer  self-signup (default)
   owner     self-signup who chose "I own a restaurant" (custom:signupRole = owner)
-  cashier   created by an owner (Step 5)
+  cashier   created by an owner through the API, tied to one restaurant
 """
 
 from pathlib import Path

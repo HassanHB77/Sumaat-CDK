@@ -1,7 +1,8 @@
-"""Post-confirmation trigger: put a self-registered user in their groups.
+"""Post-confirmation trigger: put a self-registered user in their group.
 
-Every self-signup joins `customer`. If the sign-up form set custom:signupRole = "owner", the user also
-joins `owner` (so an owner can still order food with the same account). Any other value -> customer only.
+One role per account: custom:signupRole = "owner" -> `owner`, anything else -> `customer`.
+An owner who wants to order food signs up again as a customer with another email.
+Cashiers never sign up themselves (an owner creates them through the API).
 
 Runs ONLY for `PostConfirmation_ConfirmSignUp`, so a cashier (created by AdminCreateUser) who resets a
 forgotten password (`PostConfirmation_ConfirmForgotPassword`) never gains groups, and editing signupRole
@@ -28,10 +29,7 @@ def _client():
 
 
 def groups_for(attributes: dict) -> list[str]:
-    groups = ["customer"]
-    if attributes.get("custom:signupRole") == "owner":
-        groups.append("owner")
-    return groups
+    return ["owner"] if attributes.get("custom:signupRole") == "owner" else ["customer"]
 
 
 def handler(event, _context):

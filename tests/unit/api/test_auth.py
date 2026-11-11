@@ -1,7 +1,7 @@
 import pytest
 from fastapi import Depends, FastAPI
 
-from api.auth import Principal, parse_groups, require_groups, require_user
+from api.auth import Principal, parse_groups, require_customer, require_groups, require_user
 from api.handler import app as real_app
 from tests.unit.api.conftest import ISS, customer_claims, owner_claims
 
@@ -15,6 +15,11 @@ def owner_only(p: Principal = Depends(require_groups("owner"))):
 
 @probe.get("/staff")
 def staff(p: Principal = Depends(require_groups("owner", "cashier"))):
+    return {"sub": p.sub}
+
+
+@probe.get("/customer-only")
+def customer_only(p: Principal = Depends(require_customer())):
     return {"sub": p.sub}
 
 
@@ -43,7 +48,7 @@ def test_other_pool_is_401(make_client, path):
 def test_owner_passes_and_claims_are_read(make_client):
     r = make_client(probe, owner_claims(restaurant_id="r-1")).get("/owner-only")
     assert r.status_code == 200
-    assert r.json() == {"sub": "owner-sub-1", "groups": ["customer", "owner"], "restaurantId": "r-1"}
+    assert r.json() == {"sub": "owner-sub-1", "groups": ["owner"], "restaurantId": "r-1"}
 
 
 def test_customer_cannot_use_owner_route(make_client):
@@ -62,7 +67,7 @@ def test_user_without_groups_is_403_on_group_route(make_client):
 
 @pytest.mark.parametrize("claims", [customer_claims(), owner_claims(), owner_claims(groups=None)])
 def test_any_signed_in_user_passes_require_user(make_client, claims):
-    # Owners are customers too: they can order with the same account.
+    # require_user is for routes any role may call (the service decides what they see).
     assert make_client(probe, claims).get("/any-user").status_code == 200
 
 
@@ -84,3 +89,10 @@ def test_require_groups_needs_a_group():
 )
 def test_parse_groups(raw, expected):
     assert parse_groups(raw) == expected
+
+
+def test_require_customer(make_client):
+    assert make_client(probe, customer_claims()).get("/customer-only").status_code == 200
+    # One role per account: owners and cashiers order with a separate customer account.
+    assert make_client(probe, owner_claims()).get("/customer-only").status_code == 403
+    assert make_client(probe, owner_claims(sub="c-1", groups="cashier")).get("/customer-only").status_code == 403

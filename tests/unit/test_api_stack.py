@@ -149,8 +149,16 @@ def test_iam_least_privilege(template):
         for s in p["Properties"]["PolicyDocument"]["Statement"]
     ]
     assert all(s["Resource"] != "*" for s in statements)
-    (cognito_stmt,) = [s for s in statements if s["Action"] == "cognito-idp:AdminUpdateUserAttributes"]
-    assert "Fn::ImportValue" in str(cognito_stmt["Resource"]) or "UsersPool" in str(cognito_stmt["Resource"])
+    (cognito_stmt,) = [s for s in statements if "cognito-idp:AdminCreateUser" in str(s["Action"])]
+    assert sorted(cognito_stmt["Action"]) == sorted(
+        f"cognito-idp:{a}"
+        for a in (
+            "AdminUpdateUserAttributes", "AdminCreateUser", "AdminSetUserPassword", "AdminAddUserToGroup",
+            "AdminDisableUser", "AdminEnableUser", "AdminUserGlobalSignOut", "AdminDeleteUser",
+        )
+    )
+    # This pool's ARN only (imported from SumaatAuth), never a wildcard.
+    assert "Fn::ImportValue" in str(cognito_stmt["Resource"]) and "*" not in str(cognito_stmt["Resource"])
     assert not any("cognito-idp:*" in str(s["Action"]) for s in statements)
 
 

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 
-from api.controllers import menu, restaurants
+from api.controllers import cashiers, menu, restaurants
 from api.errors import ApiError
 from api.settings import get_settings
 
@@ -39,6 +39,7 @@ def create_app() -> FastAPI:
     app.add_api_route("/health", health, methods=["GET"])
     app.include_router(restaurants.router)
     app.include_router(menu.router)
+    app.include_router(cashiers.router)
     return app
 
 

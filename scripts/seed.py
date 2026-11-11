@@ -124,8 +124,11 @@ def ensure_owner(cognito, pool_id: str, owner: dict, restaurant_id: str, passwor
         Username=email,
         UserAttributes=[{"Name": "custom:restaurantId", "Value": restaurant_id}],
     )
-    for group in ("customer", "owner"):  # same groups a self-registered owner gets
-        cognito.admin_add_user_to_group(UserPoolId=pool_id, Username=email, GroupName=group)
+    # One role per account: exactly `owner` (removes `customer` left over from the old two-role design).
+    cognito.admin_add_user_to_group(UserPoolId=pool_id, Username=email, GroupName="owner")
+    current = cognito.admin_list_groups_for_user(UserPoolId=pool_id, Username=email)["Groups"]
+    for group in {g["GroupName"] for g in current} - {"owner"}:
+        cognito.admin_remove_user_from_group(UserPoolId=pool_id, Username=email, GroupName=group)
     return next(a["Value"] for a in attrs if a["Name"] == "sub")
 
 

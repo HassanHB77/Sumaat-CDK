@@ -44,10 +44,11 @@ def test_customer_signup_joins_customer_only(pool):
     assert _groups(client, pool_id) == ["customer"]
 
 
-def test_owner_signup_joins_owner_and_customer(pool):
+def test_owner_signup_joins_owner_only(pool):
+    # One role per account: an owner orders food with a separate customer account.
     client, pool_id = pool
     load_handler("post_confirmation").handler(_event(pool_id, "PostConfirmation_ConfirmSignUp", "owner"), None)
-    assert _groups(client, pool_id) == ["customer", "owner"]
+    assert _groups(client, pool_id) == ["owner"]
 
 
 @pytest.mark.parametrize("role", [None, "", "cashier", "admin", "OWNER"])

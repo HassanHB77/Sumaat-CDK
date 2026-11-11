@@ -21,10 +21,10 @@ def api_env(monkeypatch):
         cached.cache_clear()
     yield
     for cached in (get_settings, aws.table, aws.cognito):
-        cached.cache_clear()
+        getattr(cached, "cache_clear", lambda: None)()  # a test may have monkeypatched it
 
 
-def owner_claims(sub="owner-sub-1", groups="customer,owner", restaurant_id=None) -> dict:
+def owner_claims(sub="owner-sub-1", groups="owner", restaurant_id=None) -> dict:
     # No "iss" here: with_claims() adds our pool's issuer at request time (the `ddb` fixture swaps in
     # moto's generated pool id). cognito:username == sub here; in the real pool the username is also a UUID.
     claims = {

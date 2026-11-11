@@ -21,6 +21,30 @@ Halalas = Annotated[int, Field(strict=True, ge=1, le=1_000_000)]
 Calories = Annotated[int, Field(strict=True, ge=0, le=10_000)]
 DietTags = Annotated[list[DietTag], Field(max_length=6), AfterValidator(lambda tags: list(dict.fromkeys(tags)))]
 
+# Same rules as the Cognito pool (infra/auth_stack.py), checked here first for a clear 422.
+Password = Annotated[str, Field(min_length=8, max_length=128)]
+Phone = Annotated[str, Field(pattern=r"^\+[1-9]\d{7,14}$", examples=["+966500000001"])]  # E.164
+Email = Annotated[str, Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=254)]
+
+
+def check_password_rules(password: str) -> str:
+    missing = [
+        label
+        for label, ok in (
+            ("an uppercase letter", any(c.isupper() for c in password)),
+            ("a lowercase letter", any(c.islower() for c in password)),
+            ("a digit", any(c.isdigit() for c in password)),
+            ("a symbol", any(not c.isalnum() and not c.isspace() for c in password)),
+        )
+        if not ok
+    ]
+    if missing:
+        raise ValueError("Password needs " + ", ".join(missing))
+    return password
+
+
+StrongPassword = Annotated[Password, AfterValidator(check_password_rules)]
+
 # The 3x3 geohash block always covers at least ~4.4 km around the caller (see api/geo.cells_around).
 MAX_RADIUS_KM = 4.4
 
@@ -110,3 +134,24 @@ class NearbyRestaurant(RestaurantOut):
 
 class RestaurantDetail(RestaurantOut):
     menu: list[MenuItemOut]
+
+
+class CashierCreate(_In):
+    name: Name
+    email: Email
+    phone: Phone
+    password: StrongPassword
+
+
+class PasswordReset(_In):
+    password: StrongPassword
+
+
+class CashierOut(BaseModel):
+    sub: str
+    name: str
+    email: str
+    phone: str
+    status: Literal["active", "disabled"]
+    createdAt: str
+    updatedAt: str

@@ -71,7 +71,7 @@ def test_owner_linked_both_ways(env):
     assert attrs["custom:restaurantId"] == rid
     assert attrs["name"] == "Khalid Al-Qaisi"
     groups = cognito.admin_list_groups_for_user(UserPoolId=pool_id, Username="owner.qaisariya@example.com")
-    assert sorted(g["GroupName"] for g in groups["Groups"]) == ["customer", "owner"]
+    assert [g["GroupName"] for g in groups["Groups"]] == ["owner"]
     assert attrs["phone_number"] == "+966500000102"
     lock = table.get_item(Key={"PK": f"OWNER#{attrs['sub']}", "SK": "RESTAURANT"})["Item"]
     assert lock["restaurantId"] == rid
@@ -107,3 +107,13 @@ def test_categories_cover_seed_data_and_survive_rerun(env):
     )
     seed(table)
     assert table.get_item(Key=key)["Item"]["categories"] == set(CATEGORIES) | {"Soups"}
+
+
+def test_rerun_removes_old_customer_group_from_owners(env):
+    table, cognito, pool_id = env
+    seed(table, cognito, pool_id, PASSWORD)
+    email = "owner.nakhla@example.com"
+    cognito.admin_add_user_to_group(UserPoolId=pool_id, Username=email, GroupName="customer")  # old two-role design
+    seed(table, cognito, pool_id, PASSWORD)
+    groups = cognito.admin_list_groups_for_user(UserPoolId=pool_id, Username=email)["Groups"]
+    assert [g["GroupName"] for g in groups] == ["owner"]
