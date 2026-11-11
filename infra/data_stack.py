@@ -7,6 +7,7 @@ Item shapes (see README / design doc):
                                                GSI2=CORDERS#<sub> / <createdAt>
   Counter     PK=RESTAURANT#<id>  SK=COUNTER
   Owner lock  PK=OWNER#<sub>      SK=RESTAURANT  (one restaurant per owner; written with the profile)
+  Config      PK=CONFIG           SK=CATEGORIES  categories={string set}  (menu categories)
 """
 
 from aws_cdk import RemovalPolicy, Stack

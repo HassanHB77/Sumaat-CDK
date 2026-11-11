@@ -4,7 +4,7 @@ from boto3.dynamodb.conditions import Key
 from moto import mock_aws
 
 from scripts.seed import seed, stable_id
-from scripts.seed_data import COUNTER_START, RESTAURANTS
+from scripts.seed_data import CATEGORIES, COUNTER_START, RESTAURANTS
 from tests.ddb import create_table
 
 PASSWORD = "Test#Pass2026"
@@ -30,7 +30,7 @@ def test_seed_writes_everything(env):
     assert summary["restaurants"] == 3
     assert summary["items"] == n_items
     assert summary["counters_created"] == 3
-    assert table.scan(Select="COUNT")["Count"] == 3 + n_items + 3
+    assert table.scan(Select="COUNT")["Count"] == 3 + n_items + 3 + 1  # + CONFIG/CATEGORIES
 
 
 def test_restaurant_page_is_one_query(env):
@@ -84,3 +84,17 @@ def test_rerun_is_idempotent_and_keeps_counter(env):
     counter = table.get_item(Key={"PK": f"RESTAURANT#{rid}", "SK": "COUNTER"})["Item"]
     assert counter["seq"] == COUNTER_START + 5
     assert len(cognito.list_users(UserPoolId=pool_id)["Users"]) == 3
+
+
+def test_categories_cover_seed_data_and_survive_rerun(env):
+    table, *_ = env
+    seed(table)
+    used = {i["category"] for r in RESTAURANTS for i in r["items"]}
+    assert used <= set(CATEGORIES)  # every seeded item has a valid category
+
+    key = {"PK": "CONFIG", "SK": "CATEGORIES"}
+    table.update_item(  # what the CLI command does
+        Key=key, UpdateExpression="ADD categories :c", ExpressionAttributeValues={":c": {"Soups"}}
+    )
+    seed(table)
+    assert table.get_item(Key=key)["Item"]["categories"] == set(CATEGORIES) | {"Soups"}

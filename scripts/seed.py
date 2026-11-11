@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from api.geo import encode  # noqa: E402
-from scripts.seed_data import COUNTER_START, RESTAURANTS  # noqa: E402
+from scripts.seed_data import CATEGORIES, COUNTER_START, RESTAURANTS  # noqa: E402
 
 NAMESPACE = uuid.UUID("5b1c1d0e-6a39-4f53-9d0e-3f1f6a0c5a11")  # fixed: same slug -> same id forever
 
@@ -129,6 +129,14 @@ def ensure_owner(cognito, pool_id: str, owner: dict, restaurant_id: str, passwor
 def seed(table, cognito=None, pool_id: str | None = None, password: str | None = None) -> dict:
     ts = now_iso()
     summary = {"restaurants": 0, "items": 0, "counters_created": 0, "owners": []}
+
+    # ADD on a string set is a union: re-running never removes categories added by hand.
+    table.update_item(
+        Key={"PK": "CONFIG", "SK": "CATEGORIES"},
+        UpdateExpression="ADD categories :c SET #t = :t",
+        ExpressionAttributeNames={"#t": "type"},
+        ExpressionAttributeValues={":c": set(CATEGORIES), ":t": "CONFIG"},
+    )
 
     for r in RESTAURANTS:
         rid = stable_id("restaurant", r["slug"])

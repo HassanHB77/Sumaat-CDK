@@ -6,7 +6,7 @@ lat/lng are floats in JSON; services convert them to Decimal for DynamoDB (boto3
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 DietTag = Literal["vegetarian", "vegan", "gluten_free", "dairy_free", "high_protein", "spicy"]
 
@@ -14,6 +14,12 @@ Name = Annotated[str, Field(min_length=1, max_length=80)]
 Lat = Annotated[float, Field(ge=-90, le=90)]
 Lng = Annotated[float, Field(ge=-180, le=180)]
 Hours = Annotated[str, Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$", examples=["12:00-23:30"])]
+
+Category = Annotated[str, Field(min_length=1, max_length=40)]
+# strict=True: JSON 1500 is accepted, but 15.5 and "1500" are rejected (money is never a float or a string).
+Halalas = Annotated[int, Field(strict=True, ge=1, le=1_000_000)]
+Calories = Annotated[int, Field(strict=True, ge=0, le=10_000)]
+DietTags = Annotated[list[DietTag], Field(max_length=6), AfterValidator(lambda tags: list(dict.fromkeys(tags)))]
 
 # The 3x3 geohash block always covers at least ~4.4 km around the caller (see api/geo.cells_around).
 MAX_RADIUS_KM = 4.4
@@ -46,6 +52,30 @@ class RestaurantUpdate(_In):
     lng: Lng | None = None
     hours: Hours | None = None
     isOpen: bool | None = None
+
+
+class MenuItemCreate(_In):
+    name: Name
+    nameAr: Name
+    category: Category
+    priceHalalas: Halalas
+    calories: Calories = 0
+    dietTags: DietTags = []
+    isAvailable: bool = True
+
+
+class MenuItemUpdate(_In):
+    name: Name | None = None
+    nameAr: Name | None = None
+    category: Category | None = None
+    priceHalalas: Halalas | None = None
+    calories: Calories | None = None
+    dietTags: DietTags | None = None
+    isAvailable: bool | None = None
+
+
+class CategoriesOut(BaseModel):
+    categories: list[str]
 
 
 class MenuItemOut(BaseModel):

@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 
-from api.controllers import restaurants
+from api.controllers import menu, restaurants
 from api.errors import ApiError
 
 app = FastAPI(title="Sumaat API", version="0.1.0")
@@ -21,6 +21,7 @@ def health() -> dict:
 
 
 app.include_router(restaurants.router)
+app.include_router(menu.router)
 
 
 # lifespan="off": no startup/shutdown events on Lambda.

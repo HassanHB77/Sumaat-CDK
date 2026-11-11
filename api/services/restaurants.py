@@ -19,6 +19,7 @@ from api.auth import Principal
 from api.clock import now_iso
 from api.errors import Conflict, Forbidden, Invalid, NotFound
 from api.models import RestaurantCreate, RestaurantUpdate
+from api.services.ddb import set_expression
 from api.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -132,7 +133,8 @@ def create(owner: Principal, data: RestaurantCreate) -> dict:
     return profile
 
 
-def _load_owned(owner: Principal, rid: str) -> dict:
+def load_owned(owner: Principal, rid: str) -> dict:
+    """The restaurant profile, if it exists (404) and the caller owns it (403)."""
     item = aws.table().get_item(Key={"PK": _pk(rid), "SK": "PROFILE"}).get("Item")
     if item is None:
         raise NotFound("Restaurant not found")
@@ -145,7 +147,7 @@ def update(owner: Principal, rid: str, data: RestaurantUpdate) -> dict:
     changes = data.model_dump(exclude_unset=True, exclude_none=True)
     if not changes:
         raise Invalid("Nothing to update")
-    current = _load_owned(owner, rid)
+    current = load_owned(owner, rid)
 
     if "lat" in changes or "lng" in changes:
         lat = changes.pop("lat", float(current["lat"]))
@@ -153,17 +155,15 @@ def update(owner: Principal, rid: str, data: RestaurantUpdate) -> dict:
         changes.update(_geo_fields(lat, lng))
     changes["updatedAt"] = now_iso()
 
-    names = {f"#f{i}": k for i, k in enumerate(changes)}
-    values = {f":v{i}": v for i, v in enumerate(changes.values())}
+    expr = set_expression(changes)
+    expr["ExpressionAttributeValues"][":sub"] = owner.sub
     try:
         res = aws.table().update_item(
             Key={"PK": _pk(rid), "SK": "PROFILE"},
-            UpdateExpression="SET " + ", ".join(f"#f{i} = :v{i}" for i in range(len(changes))),
             # Re-check ownership atomically: the GetItem above only gives a nice 404/403.
             ConditionExpression="attribute_exists(PK) AND ownerSub = :sub",
-            ExpressionAttributeNames=names,
-            ExpressionAttributeValues={**values, ":sub": owner.sub},
             ReturnValues="ALL_NEW",
+            **expr,
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
