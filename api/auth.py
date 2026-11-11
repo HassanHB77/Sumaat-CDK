@@ -22,6 +22,8 @@ class Principal:
     sub: str
     username: str  # Cognito username (an internal UUID; users sign in with their email)
     name: str | None
+    email: str | None  # personal data: store where needed, never log
+    phone: str | None
     groups: frozenset[str]
     restaurant_id: str | None
 
@@ -52,6 +54,8 @@ def principal_from(request: Request) -> Principal:
         sub=claims["sub"],
         username=claims.get("cognito:username") or claims["sub"],
         name=claims.get("name"),
+        email=claims.get("email"),
+        phone=claims.get("phone_number"),
         groups=parse_groups(claims.get("cognito:groups")),
         restaurant_id=claims.get("custom:restaurantId") or None,
     )

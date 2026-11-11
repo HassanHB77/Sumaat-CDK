@@ -1,7 +1,7 @@
 """Seed the `sumaat` table (and demo owner logins) with 3 fictional Al-Ahsa restaurants.
 
 Safe to re-run: ids are deterministic (uuid5 from the slug), items are overwritten,
-order counters are only created if missing, existing owner users are reused.
+existing owner users are reused.
 
 Usage:
   SEED_OWNER_PASSWORD='...' uv run python scripts/seed.py            # table + owners
@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from api.geo import encode  # noqa: E402
-from scripts.seed_data import CATEGORIES, COUNTER_START, RESTAURANTS  # noqa: E402
+from scripts.seed_data import CATEGORIES, RESTAURANTS  # noqa: E402
 
 NAMESPACE = uuid.UUID("5b1c1d0e-6a39-4f53-9d0e-3f1f6a0c5a11")  # fixed: same slug -> same id forever
 
@@ -134,7 +134,7 @@ def ensure_owner(cognito, pool_id: str, owner: dict, restaurant_id: str, passwor
 
 def seed(table, cognito=None, pool_id: str | None = None, password: str | None = None) -> dict:
     ts = now_iso()
-    summary = {"restaurants": 0, "items": 0, "counters_created": 0, "owners": []}
+    summary = {"restaurants": 0, "items": 0, "owners": []}
 
     # ADD on a string set is a union: re-running never removes categories added by hand.
     table.update_item(
@@ -162,15 +162,6 @@ def seed(table, cognito=None, pool_id: str | None = None, password: str | None =
             for item in menu_items(r, ts):
                 batch.put_item(Item=item)
                 summary["items"] += 1
-
-        try:
-            table.put_item(
-                Item={"PK": f"RESTAURANT#{rid}", "SK": "COUNTER", "type": "COUNTER", "seq": COUNTER_START},
-                ConditionExpression="attribute_not_exists(PK)",  # never reset a live counter
-            )
-            summary["counters_created"] += 1
-        except table.meta.client.exceptions.ConditionalCheckFailedException:
-            pass
 
     return summary
 

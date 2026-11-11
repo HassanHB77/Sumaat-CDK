@@ -3,7 +3,7 @@
 Items (see infra/data_stack.py):
   Profile     PK=RESTAURANT#<id>  SK=PROFILE   GSI1PK=GEO#<geohash5>  GSI1SK=RESTAURANT#<id>
   Menu item   PK=RESTAURANT#<id>  SK=ITEM#<id>
-  Counter     PK=RESTAURANT#<id>  SK=COUNTER   seq  (order numbers)
+  Counter     PK=RESTAURANT#<id>  SK=COUNTER#<YYYY-MM-DD>  seq  (daily order numbers, see services/orders.py)
   Owner lock  PK=OWNER#<sub>      SK=RESTAURANT  restaurantId  (one restaurant per owner)
 """
 
@@ -24,9 +24,6 @@ from api.services.staff import require_staff
 from api.settings import get_settings
 
 logger = logging.getLogger(__name__)
-
-COUNTER_START = 100  # first order is #101 (same as scripts/seed_data.py)
-
 
 def _pk(rid: str) -> str:
     return f"RESTAURANT#{rid}"
@@ -108,12 +105,10 @@ def create(owner: Principal, data: RestaurantCreate) -> dict:
     name = table.name
     new = "attribute_not_exists(PK)"
     try:
-        # All three or none: profile, order counter, and the one-restaurant-per-owner lock.
+        # Both or none: the profile and the one-restaurant-per-owner lock.
         table.meta.client.transact_write_items(
             TransactItems=[
                 {"Put": {"TableName": name, "Item": profile, "ConditionExpression": new}},
-                {"Put": {"TableName": name, "Item": {"PK": _pk(rid), "SK": "COUNTER", "type": "COUNTER",
-                                                     "seq": COUNTER_START}, "ConditionExpression": new}},
                 {"Put": {"TableName": name, "Item": {**_owner_lock_key(owner.sub), "type": "OWNER_LOCK",
                                                      "restaurantId": rid, "createdAt": ts},
                          "ConditionExpression": new}},

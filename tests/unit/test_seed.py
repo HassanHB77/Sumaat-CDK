@@ -4,7 +4,7 @@ from boto3.dynamodb.conditions import Key
 from moto import mock_aws
 
 from scripts.seed import seed, stable_id
-from scripts.seed_data import CATEGORIES, COUNTER_START, RESTAURANTS
+from scripts.seed_data import CATEGORIES, RESTAURANTS
 from tests.ddb import create_table
 
 PASSWORD = "Test#Pass2026"
@@ -34,9 +34,8 @@ def test_seed_writes_everything(env):
     n_items = sum(len(r["items"]) for r in RESTAURANTS)
     assert summary["restaurants"] == 3
     assert summary["items"] == n_items
-    assert summary["counters_created"] == 3
-    # profiles + items + counters + owner locks + CONFIG/CATEGORIES
-    assert table.scan(Select="COUNT")["Count"] == 3 + n_items + 3 + 3 + 1
+    # profiles + items + owner locks + CONFIG/CATEGORIES (daily order counters are created by the API)
+    assert table.scan(Select="COUNT")["Count"] == 3 + n_items + 3 + 1
 
 
 def test_restaurant_page_is_one_query(env):
@@ -44,7 +43,7 @@ def test_restaurant_page_is_one_query(env):
     seed(table)
     rid = stable_id("restaurant", "nakhla-kitchen")
     items = table.query(KeyConditionExpression=Key("PK").eq(f"RESTAURANT#{rid}"))["Items"]
-    assert {i["SK"].split("#")[0] for i in items} == {"PROFILE", "ITEM", "COUNTER"}
+    assert {i["SK"].split("#")[0] for i in items} == {"PROFILE", "ITEM"}
 
 
 def test_geo_lookup_finds_restaurants(env):
@@ -79,19 +78,16 @@ def test_owner_linked_both_ways(env):
     assert profile["ownerSub"] == attrs["sub"]
 
 
-def test_rerun_is_idempotent_and_keeps_counter(env):
+def test_rerun_is_idempotent_and_keeps_daily_counters(env):
     table, cognito, pool_id = env
     seed(table, cognito, pool_id, PASSWORD)
     rid = stable_id("restaurant", "mubarraz-dates-coffee")
-    table.update_item(  # simulate 5 real orders
-        Key={"PK": f"RESTAURANT#{rid}", "SK": "COUNTER"}, UpdateExpression="ADD seq :n", ExpressionAttributeValues={":n": 5}
-    )
+    key = {"PK": f"RESTAURANT#{rid}", "SK": "COUNTER#2026-11-12"}
+    table.update_item(Key=key, UpdateExpression="ADD seq :n", ExpressionAttributeValues={":n": 5})  # 5 real orders
     before = table.scan(Select="COUNT")["Count"]
-    second = seed(table, cognito, pool_id, PASSWORD)
-    assert second["counters_created"] == 0
+    seed(table, cognito, pool_id, PASSWORD)
     assert table.scan(Select="COUNT")["Count"] == before
-    counter = table.get_item(Key={"PK": f"RESTAURANT#{rid}", "SK": "COUNTER"})["Item"]
-    assert counter["seq"] == COUNTER_START + 5
+    assert table.get_item(Key=key)["Item"]["seq"] == 5  # the seed never touches order numbers
     assert len(cognito.list_users(UserPoolId=pool_id)["Users"]) == 3
 
 

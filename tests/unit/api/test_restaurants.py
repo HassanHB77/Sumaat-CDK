@@ -100,7 +100,7 @@ def test_get_unknown_is_404(seeded, public):
 # --- POST /restaurants (owner) -----------------------------------------------
 
 
-def test_create_writes_profile_counter_lock_and_cognito_attr(ddb, owner, public):
+def test_create_writes_profile_lock_and_cognito_attr(ddb, owner, public):
     table, cognito, pool_id = ddb
     r = owner.post("/restaurants", json=NEW)
     assert r.status_code == 201
@@ -112,7 +112,7 @@ def test_create_writes_profile_counter_lock_and_cognito_attr(ddb, owner, public)
     profile = table.get_item(Key={"PK": pk, "SK": "PROFILE"})["Item"]
     assert profile["ownerSub"] == "owner-sub-1"
     assert profile["GSI1PK"] == "GEO#the22"
-    assert table.get_item(Key={"PK": pk, "SK": "COUNTER"})["Item"]["seq"] == 100
+    assert "Item" not in table.get_item(Key={"PK": pk, "SK": "COUNTER"})  # daily counters are created by orders
     assert table.get_item(Key={"PK": "OWNER#owner-sub-1", "SK": "RESTAURANT"})["Item"]["restaurantId"] == rid
 
     attrs = cognito.admin_get_user(UserPoolId=pool_id, Username="owner-sub-1")["UserAttributes"]

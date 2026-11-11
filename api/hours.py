@@ -9,7 +9,7 @@ Saudi Arabia is UTC+3 all year (no daylight saving), so a fixed offset is used i
 database. Simpler, and nothing to install on Lambda.
 """
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta, timezone
 
 RIYADH = timezone(timedelta(hours=3), "Asia/Riyadh")
 
@@ -37,3 +37,16 @@ def is_within_hours(hours: str, now: datetime | None = None) -> bool:
 def open_now(restaurant: dict, now: datetime | None = None) -> bool:
     """Taking orders right now = not paused AND inside opening hours."""
     return not restaurant.get("isPaused", False) and is_within_hours(restaurant["hours"], now)
+
+
+def riyadh_date(now: datetime | None = None) -> date:
+    """The business day in Riyadh (orders after midnight belong to the new day)."""
+    return (now or riyadh_now()).astimezone(RIYADH).date()
+
+
+def day_bounds_utc(day: date) -> tuple[str, str]:
+    """[start, end) of a Riyadh day as UTC ISO strings, the same format as createdAt (api/clock.py)."""
+    start = datetime.combine(day, time(0, 0), RIYADH).astimezone(UTC)
+    end = start + timedelta(days=1)
+    fmt = "%Y-%m-%dT%H:%M:%SZ"
+    return start.strftime(fmt), end.strftime(fmt)

@@ -155,3 +155,64 @@ class CashierOut(BaseModel):
     status: Literal["active", "disabled"]
     createdAt: str
     updatedAt: str
+
+
+# --- orders ------------------------------------------------------------------
+
+OrderStatus = Literal["PLACED", "ACCEPTED", "READY_FOR_PICKUP", "SERVED", "REJECTED", "CANCELLED"]
+
+
+class OrderLineIn(_In):
+    itemId: Annotated[str, Field(min_length=1, max_length=64)]
+    qty: Annotated[int, Field(strict=True, ge=1, le=20)]
+
+
+def _no_duplicate_items(lines: list[OrderLineIn]) -> list[OrderLineIn]:
+    ids = [line.itemId for line in lines]
+    if len(ids) != len(set(ids)):
+        raise ValueError("Each item may appear only once; use qty instead")
+    return lines
+
+
+class OrderCreate(_In):
+    """No prices here on purpose: the API takes prices from the menu in the database."""
+
+    restaurantId: Annotated[str, Field(min_length=1, max_length=64)]
+    items: Annotated[list[OrderLineIn], Field(min_length=1, max_length=20), AfterValidator(_no_duplicate_items)]
+    note: Annotated[str, Field(max_length=200)] | None = None
+
+
+class OrderLine(BaseModel):
+    itemId: str
+    name: str
+    nameAr: str
+    unitPriceHalalas: int
+    qty: int
+    lineTotalHalalas: int
+
+
+class StatusChange(BaseModel):
+    status: OrderStatus
+    at: str
+    by: str
+    role: Literal["customer", "owner", "cashier"]
+    reason: str | None = None
+
+
+class OrderOut(BaseModel):
+    """What customers and staff see. customerEmail is never returned (kept only for the pickup email)."""
+
+    id: str
+    orderNumber: int
+    businessDate: str  # Riyadh date; numbers restart at #1 every day
+    restaurantId: str
+    restaurantName: str
+    customerName: str | None = None
+    customerPhone: str | None = None
+    items: list[OrderLine]
+    totalHalalas: int  # VAT included
+    note: str | None = None
+    status: OrderStatus
+    statusHistory: list[StatusChange]
+    createdAt: str
+    updatedAt: str

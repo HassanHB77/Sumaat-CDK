@@ -88,5 +88,4 @@ RESTAURANTS = [
 # Menu categories owners can choose from (stored as CONFIG/CATEGORIES; extend later via CLI/console).
 CATEGORIES = ["Breakfast", "Dates", "Drinks", "Grills", "Mains", "Mezze", "Sandwiches", "Sides", "Sweets"]
 
-# Order numbers start after this, so the first order is #101.
-COUNTER_START = 100
+# Order numbers: no seed needed. Each restaurant starts at #1 every day (api/services/orders.py).
