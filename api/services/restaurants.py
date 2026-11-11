@@ -123,7 +123,7 @@ def create(owner: Principal, data: RestaurantCreate) -> dict:
     # ownerSub), so a failure here is logged and the restaurant is still usable.
     try:
         aws.cognito().admin_update_user_attributes(
-            UserPoolId=get_settings().business_pool_id,
+            UserPoolId=get_settings().user_pool_id,
             Username=owner.username,
             UserAttributes=[{"Name": "custom:restaurantId", "Value": rid}],
         )

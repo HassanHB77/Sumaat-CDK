@@ -15,7 +15,7 @@ RESTAURANTS = [
         "lat": 25.3797,
         "lng": 49.5867,
         "hours": "12:00-23:30",
-        "owner": {"email": "owner.nakhla@example.com", "name": "Abdullah Al-Nakhli"},
+        "owner": {"email": "owner.nakhla@example.com", "name": "Abdullah Al-Nakhli", "phone": "+966500000101"},
         "items": [
             {"slug": "hasawi-rice-chicken", "name": "Hasawi Red Rice with Chicken", "nameAr": "رز حساوي بالدجاج",
              "category": "Mains", "priceHalalas": 3500, "calories": 850, "dietTags": ["gluten_free", "high_protein"]},
@@ -41,7 +41,7 @@ RESTAURANTS = [
         "lat": 25.3712,
         "lng": 49.5741,
         "hours": "13:00-01:00",
-        "owner": {"email": "owner.qaisariya@example.com", "name": "Khalid Al-Qaisi"},
+        "owner": {"email": "owner.qaisariya@example.com", "name": "Khalid Al-Qaisi", "phone": "+966500000102"},
         "items": [
             {"slug": "shish-tawook", "name": "Shish Tawook Plate", "nameAr": "صحن شيش طاووق",
              "category": "Grills", "priceHalalas": 3200, "calories": 640, "dietTags": ["gluten_free", "high_protein"]},
@@ -67,7 +67,7 @@ RESTAURANTS = [
         "lat": 25.4086,
         "lng": 49.5823,
         "hours": "07:00-23:00",
-        "owner": {"email": "owner.mubarraz@example.com", "name": "Noura Al-Mubarrak"},
+        "owner": {"email": "owner.mubarraz@example.com", "name": "Noura Al-Mubarrak", "phone": "+966500000103"},
         "items": [
             {"slug": "saudi-coffee", "name": "Saudi Coffee (dallah)", "nameAr": "قهوة سعودية (دلة)",
              "category": "Drinks", "priceHalalas": 800, "calories": 10, "dietTags": ["vegan", "gluten_free", "dairy_free"]},

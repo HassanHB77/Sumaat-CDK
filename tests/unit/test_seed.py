@@ -16,10 +16,15 @@ def env():
         table = create_table(boto3.resource("dynamodb", region_name="us-east-1"))
         cognito = boto3.client("cognito-idp", region_name="us-east-1")
         pool_id = cognito.create_user_pool(
-            PoolName="sumaat-business",
-            Schema=[{"Name": "restaurantId", "AttributeDataType": "String", "Mutable": True}],
+            PoolName="sumaat-users",
+            UsernameAttributes=["email"],
+            Schema=[
+                {"Name": "restaurantId", "AttributeDataType": "String", "Mutable": True},
+                {"Name": "signupRole", "AttributeDataType": "String", "Mutable": True},
+            ],
         )["UserPool"]["Id"]
-        cognito.create_group(UserPoolId=pool_id, GroupName="owner")
+        for group in ("customer", "owner", "cashier"):
+            cognito.create_group(UserPoolId=pool_id, GroupName=group)
         yield table, cognito, pool_id
 
 
@@ -30,7 +35,8 @@ def test_seed_writes_everything(env):
     assert summary["restaurants"] == 3
     assert summary["items"] == n_items
     assert summary["counters_created"] == 3
-    assert table.scan(Select="COUNT")["Count"] == 3 + n_items + 3 + 1  # + CONFIG/CATEGORIES
+    # profiles + items + counters + owner locks + CONFIG/CATEGORIES
+    assert table.scan(Select="COUNT")["Count"] == 3 + n_items + 3 + 3 + 1
 
 
 def test_restaurant_page_is_one_query(env):
@@ -65,7 +71,10 @@ def test_owner_linked_both_ways(env):
     assert attrs["custom:restaurantId"] == rid
     assert attrs["name"] == "Khalid Al-Qaisi"
     groups = cognito.admin_list_groups_for_user(UserPoolId=pool_id, Username="owner.qaisariya@example.com")
-    assert [g["GroupName"] for g in groups["Groups"]] == ["owner"]
+    assert sorted(g["GroupName"] for g in groups["Groups"]) == ["customer", "owner"]
+    assert attrs["phone_number"] == "+966500000102"
+    lock = table.get_item(Key={"PK": f"OWNER#{attrs['sub']}", "SK": "RESTAURANT"})["Item"]
+    assert lock["restaurantId"] == rid
     profile = table.get_item(Key={"PK": f"RESTAURANT#{rid}", "SK": "PROFILE"})["Item"]
     assert profile["ownerSub"] == attrs["sub"]
 

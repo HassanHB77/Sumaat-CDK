@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
-from api.auth import Principal, require_business
+from api.auth import Principal, require_groups
 from api.models import (
     MAX_RADIUS_KM,
     Lat,
@@ -19,7 +19,7 @@ from api.services import restaurants
 
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
 
-Owner = Annotated[Principal, Depends(require_business("owner"))]
+Owner = Annotated[Principal, Depends(require_groups("owner"))]
 
 
 @router.get("", response_model=list[NearbyRestaurant])

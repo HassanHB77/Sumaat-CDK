@@ -4,27 +4,24 @@ API Gateway (REST, Cognito authorizer) checks the JWT signature and expiry BEFOR
 puts the decoded claims in event.requestContext.authorizer.claims. Mangum exposes the raw event as
 request.scope["aws.event"]. We trust those claims and never re-verify the JWT here.
 
-One authorizer accepts BOTH pools (Step 4), so a customer token also passes API Gateway.
-That's why every dependency below also checks which pool issued the token (`iss`).
+One pool (sumaat-users) for everyone; Cognito groups decide what a user may do:
+  customer (every self-signup), owner (also a customer), cashier (Step 5).
+We still check `iss` is our pool, as a defence against a misconfigured authorizer.
 """
 
 import re
 from dataclasses import dataclass
-from typing import Literal
 
 from fastapi import HTTPException, Request, status
 
 from api.settings import get_settings
 
-Pool = Literal["business", "customer"]
-
 
 @dataclass(frozen=True)
 class Principal:
     sub: str
-    username: str  # Cognito username (a UUID in the business pool, the phone in the customer pool)
+    username: str  # Cognito username (an internal UUID; users sign in with their email)
     name: str | None
-    pool: Pool
     groups: frozenset[str]
     restaurant_id: str | None
 
@@ -44,53 +41,40 @@ def claims_from(request: Request) -> dict | None:
     return claims or None
 
 
-def _pool_of(iss: str) -> Pool | None:
-    s = get_settings()
-    if s.business_pool_id and iss.endswith(f"/{s.business_pool_id}"):
-        return "business"
-    if s.customer_pool_id and iss.endswith(f"/{s.customer_pool_id}"):
-        return "customer"
-    return None
-
-
 def principal_from(request: Request) -> Principal:
     claims = claims_from(request)
     if not claims or not claims.get("sub"):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not signed in")
-    pool = _pool_of(str(claims.get("iss", "")))
-    if pool is None:
+    pool_id = get_settings().user_pool_id
+    if not pool_id or not str(claims.get("iss", "")).endswith(f"/{pool_id}"):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown token issuer")
     return Principal(
         sub=claims["sub"],
         username=claims.get("cognito:username") or claims["sub"],
         name=claims.get("name"),
-        pool=pool,
         groups=parse_groups(claims.get("cognito:groups")),
         restaurant_id=claims.get("custom:restaurantId") or None,
     )
 
 
-def require_business(*groups: str):
-    """Dependency: business-pool user in at least one of `groups` (any group if none given)."""
+def require_user():
+    """Dependency: any signed-in user (customers, and owners/cashiers acting as customers)."""
 
     def dep(request: Request) -> Principal:
-        p = principal_from(request)
-        if p.pool != "business":
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Business account required")
-        if groups and not (p.groups & set(groups)):
-            raise HTTPException(status.HTTP_403_FORBIDDEN, f"Requires group: {' or '.join(groups)}")
-        return p
+        return principal_from(request)
 
     return dep
 
 
-def require_customer():
-    """Dependency: signed-in customer-pool user."""
+def require_groups(*groups: str):
+    """Dependency: signed-in user in at least one of `groups`."""
+    if not groups:
+        raise ValueError("require_groups needs at least one group; use require_user() for any user")
 
     def dep(request: Request) -> Principal:
         p = principal_from(request)
-        if p.pool != "customer":
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Customer account required")
+        if not (p.groups & set(groups)):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, f"Requires group: {' or '.join(groups)}")
         return p
 
     return dep

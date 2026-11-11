@@ -1,7 +1,10 @@
-"""AuthStack: two Cognito user pools.
+"""AuthStack: one Cognito user pool for everyone (customers, owners, cashiers).
 
-sumaat-business   owners + cashiers, email + password (SRP), email confirmed once at sign-up.
-sumaat-customers  customers, phone + OTP through custom-auth triggers (OTP_MODE fixed|sms).
+sumaat-users  email + password, email confirmed with a code at sign-up. Required: email, name, phone.
+Groups decide what a user can do (the frontend shows pages by group, the API enforces it):
+  customer  every self-signup (owners too: an owner can also order food with the same account)
+  owner     self-signup who chose "I own a restaurant" (custom:signupRole = owner)
+  cashier   created by an owner (Step 5)
 """
 
 from pathlib import Path
@@ -16,171 +19,106 @@ from constructs import Construct
 
 FUNCTIONS_DIR = Path(__file__).resolve().parent.parent / "functions"
 RUNTIME = lambda_.Runtime.PYTHON_3_14
-
-PASSWORD_POLICY = cognito.PasswordPolicy(
-    min_length=8,
-    require_lowercase=True,
-    require_uppercase=True,
-    require_digits=True,
-    require_symbols=True,
-)
+GROUPS = ("customer", "owner", "cashier")
 
 
 class AuthStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        otp_mode = self.node.try_get_context("otpMode") or "fixed"
-        if otp_mode not in ("fixed", "sms"):
-            raise ValueError(f"otpMode must be 'fixed' or 'sms', got {otp_mode!r}")
-
-        self._build_business_pool()
-        self._build_customer_pool(otp_mode)
-        self._suppress_nag()
-
-    # --- helpers ------------------------------------------------------------
-
-    def _function(self, construct_id: str, folder: str, environment: dict | None = None) -> lambda_.Function:
-        return lambda_.Function(
+        self.user_pool = cognito.UserPool(
             self,
-            construct_id,
-            runtime=RUNTIME,
-            architecture=lambda_.Architecture.ARM_64,
-            handler="handler.handler",
-            code=lambda_.Code.from_asset(str(FUNCTIONS_DIR / folder)),
-            timeout=Duration.seconds(5),
-            memory_size=256,
-            environment=environment or {},
-            log_group=logs.LogGroup(
-                self,
-                f"{construct_id}Logs",
-                retention=logs.RetentionDays.ONE_MONTH,
-                removal_policy=RemovalPolicy.DESTROY,
-            ),
-        )
-
-    # --- business pool ------------------------------------------------------
-
-    def _build_business_pool(self) -> None:
-        self.business_pool = cognito.UserPool(
-            self,
-            # V2: required attributes can't be added to an existing pool, so `name` forced a new
-            # pool. A new construct id makes CloudFormation create-then-delete instead of failing.
-            "BusinessPoolV2",
-            user_pool_name="sumaat-business",
+            # New pool (replaces BusinessPoolV2 + CustomerPool): a required attribute (phone) can't be
+            # added to an existing pool, so CloudFormation must create a new one.
+            "UsersPool",
+            user_pool_name="sumaat-users",
             feature_plan=cognito.FeaturePlan.ESSENTIALS,
             self_sign_up_enabled=True,
             sign_in_aliases=cognito.SignInAliases(email=True),
-            auto_verify=cognito.AutoVerifiedAttrs(email=True),
+            auto_verify=cognito.AutoVerifiedAttrs(email=True),  # 6-digit code by email (Cognito's sender)
             standard_attributes=cognito.StandardAttributes(
                 email=cognito.StandardAttribute(required=True, mutable=True),
                 fullname=cognito.StandardAttribute(required=True, mutable=True),  # Cognito "name" = full name
+                phone_number=cognito.StandardAttribute(required=True, mutable=True),  # contact only, not verified
             ),
-            custom_attributes={"restaurantId": cognito.StringAttribute(mutable=True)},
-            password_policy=PASSWORD_POLICY,
+            custom_attributes={
+                "restaurantId": cognito.StringAttribute(mutable=True),
+                "signupRole": cognito.StringAttribute(mutable=True, max_len=20),  # "customer" | "owner"
+            },
+            password_policy=cognito.PasswordPolicy(
+                min_length=8,
+                require_lowercase=True,
+                require_uppercase=True,
+                require_digits=True,
+                require_symbols=True,
+            ),
             mfa=cognito.Mfa.OFF,
             account_recovery=cognito.AccountRecovery.EMAIL_ONLY,
             removal_policy=RemovalPolicy.DESTROY,
         )
 
-        for group in ("owner", "cashier"):
+        for group in GROUPS:
             cognito.CfnUserPoolGroup(
                 self,
                 f"{group.capitalize()}Group",
-                user_pool_id=self.business_pool.user_pool_id,
+                user_pool_id=self.user_pool.user_pool_id,
                 group_name=group,
             )
 
-        self.business_client = self.business_pool.add_client(
-            "BusinessWebClient",
+        self.client = self.user_pool.add_client(
+            "WebClient",
             user_pool_client_name="web",
             generate_secret=False,
-            auth_flows=cognito.AuthFlow(user_srp=True),
+            # SRP: what Amplify uses in the browser. USER_PASSWORD: lets scripts/get_token.py log in from the
+            # terminal for testing (password goes to Cognito over HTTPS).
+            auth_flows=cognito.AuthFlow(user_srp=True, user_password=True),
             prevent_user_existence_errors=True,
             read_attributes=cognito.ClientAttributes()
-            .with_standard_attributes(email=True, email_verified=True, fullname=True)
-            .with_custom_attributes("restaurantId"),
+            .with_standard_attributes(email=True, email_verified=True, fullname=True, phone_number=True)
+            .with_custom_attributes("restaurantId", "signupRole"),
             # restaurantId is deliberately NOT writable: only the API sets it (Admin APIs).
-            write_attributes=cognito.ClientAttributes().with_standard_attributes(email=True, fullname=True),
+            write_attributes=cognito.ClientAttributes()
+            .with_standard_attributes(email=True, fullname=True, phone_number=True)
+            .with_custom_attributes("signupRole"),
         )
 
-        post_confirmation = self._function("PostConfirmationFn", "post_confirmation")
-        self.business_pool.add_trigger(cognito.UserPoolOperation.POST_CONFIRMATION, post_confirmation)
+        post_confirmation = lambda_.Function(
+            self,
+            "PostConfirmationFn",
+            runtime=RUNTIME,
+            architecture=lambda_.Architecture.ARM_64,
+            handler="handler.handler",
+            code=lambda_.Code.from_asset(str(FUNCTIONS_DIR / "post_confirmation")),
+            timeout=Duration.seconds(5),
+            memory_size=256,
+            log_group=logs.LogGroup(
+                self,
+                "PostConfirmationFnLogs",
+                retention=logs.RetentionDays.ONE_MONTH,
+                removal_policy=RemovalPolicy.DESTROY,
+            ),
+        )
+        self.user_pool.add_trigger(cognito.UserPoolOperation.POST_CONFIRMATION, post_confirmation)
 
-        # Separate Policy + wildcard pool ARN: referencing business_pool.user_pool_arn here
+        # Separate Policy + wildcard pool ARN: referencing user_pool.user_pool_arn here
         # would create a pool <-> Lambda circular dependency.
-        self._post_confirmation_policy = iam.Policy(
-            self,
-            "PostConfirmationPolicy",
-            statements=[
-                iam.PolicyStatement(
-                    actions=["cognito-idp:AdminAddUserToGroup"],
-                    resources=[f"arn:aws:cognito-idp:{self.region}:{self.account}:userpool/*"],
-                )
-            ],
-        )
-        post_confirmation.role.attach_inline_policy(self._post_confirmation_policy)
-
-        CfnOutput(self, "BusinessUserPoolId", value=self.business_pool.user_pool_id)
-        CfnOutput(self, "BusinessClientId", value=self.business_client.user_pool_client_id)
-
-    # --- customer pool ------------------------------------------------------
-
-    def _build_customer_pool(self, otp_mode: str) -> None:
-        self.customer_pool = cognito.UserPool(
-            self,
-            "CustomerPool",
-            user_pool_name="sumaat-customers",
-            feature_plan=cognito.FeaturePlan.ESSENTIALS,
-            self_sign_up_enabled=True,
-            sign_in_aliases=cognito.SignInAliases(phone=True),
-            standard_attributes=cognito.StandardAttributes(
-                phone_number=cognito.StandardAttribute(required=True, mutable=True),
-                fullname=cognito.StandardAttribute(required=True, mutable=True),
-            ),
-            # Required by the SignUp API; the website sends a random one nobody uses.
-            password_policy=PASSWORD_POLICY,
-            mfa=cognito.Mfa.OFF,
-            account_recovery=cognito.AccountRecovery.NONE,
-            removal_policy=RemovalPolicy.DESTROY,
+        post_confirmation.role.attach_inline_policy(
+            iam.Policy(
+                self,
+                "PostConfirmationPolicy",
+                statements=[
+                    iam.PolicyStatement(
+                        actions=["cognito-idp:AdminAddUserToGroup"],
+                        resources=[f"arn:aws:cognito-idp:{self.region}:{self.account}:userpool/*"],
+                    )
+                ],
+            )
         )
 
-        self.customer_client = self.customer_pool.add_client(
-            "CustomerWebClient",
-            user_pool_client_name="web",
-            generate_secret=False,
-            auth_flows=cognito.AuthFlow(custom=True),  # phone + OTP only, no password login
-            prevent_user_existence_errors=True,
-            read_attributes=cognito.ClientAttributes().with_standard_attributes(
-                fullname=True, phone_number=True, phone_number_verified=True
-            ),
-            write_attributes=cognito.ClientAttributes().with_standard_attributes(
-                fullname=True, phone_number=True
-            ),
-        )
+        CfnOutput(self, "UserPoolId", value=self.user_pool.user_pool_id)
+        CfnOutput(self, "UserPoolClientId", value=self.client.user_pool_client_id)
 
-        customer_auth = self._function(
-            "CustomerAuthFn",
-            "customer_auth",
-            environment={"OTP_MODE": otp_mode, "FIXED_OTP": "1234"},
-        )
-        for op in (
-            cognito.UserPoolOperation.PRE_SIGN_UP,
-            cognito.UserPoolOperation.DEFINE_AUTH_CHALLENGE,
-            cognito.UserPoolOperation.CREATE_AUTH_CHALLENGE,
-            cognito.UserPoolOperation.VERIFY_AUTH_CHALLENGE_RESPONSE,
-        ):
-            self.customer_pool.add_trigger(op, customer_auth)
-
-        # SMS publishing to a phone number has no resource ARN, so it must be "*".
-        customer_auth.add_to_role_policy(
-            iam.PolicyStatement(actions=["sns:Publish"], resources=["*"])
-        )
-
-        CfnOutput(self, "CustomerUserPoolId", value=self.customer_pool.user_pool_id)
-        CfnOutput(self, "CustomerClientId", value=self.customer_client.user_pool_client_id)
-
-    # --- cdk-nag ------------------------------------------------------------
+        self._suppress_nag()
 
     def _suppress_nag(self) -> None:
         NagSuppressions.add_stack_suppressions(
@@ -188,8 +126,8 @@ class AuthStack(Stack):
             [
                 {
                     "id": "AwsSolutions-COG2",
-                    "reason": "POC decision: no MFA. Business users sign in with email + password; "
-                    "customers already prove their phone with an OTP on every login.",
+                    "reason": "POC decision: no MFA. Users sign in with email + password; the email is "
+                    "verified with a code at sign-up.",
                 },
                 {
                     "id": "AwsSolutions-COG3",
@@ -203,7 +141,7 @@ class AuthStack(Stack):
                 },
                 {
                     "id": "AwsSolutions-IAM4",
-                    "reason": "Lambda roles use the AWS-managed AWSLambdaBasicExecutionRole "
+                    "reason": "Lambda role uses the AWS-managed AWSLambdaBasicExecutionRole "
                     "(CloudWatch Logs only); acceptable for the POC.",
                     "appliesTo": [
                         "Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
@@ -214,11 +152,6 @@ class AuthStack(Stack):
                     "reason": "Post-confirmation trigger uses a wildcard pool ARN (this account + region "
                     "only) to avoid a user pool <-> Lambda circular dependency.",
                     "appliesTo": [{"regex": "/^Resource::arn:aws:cognito-idp:.+:userpool\\/\\*$/"}],
-                },
-                {
-                    "id": "AwsSolutions-IAM5",
-                    "reason": "sns:Publish directly to a phone number (SMS OTP) has no resource ARN.",
-                    "appliesTo": ["Resource::*"],
                 },
                 {
                     "id": "AwsSolutions-L1",

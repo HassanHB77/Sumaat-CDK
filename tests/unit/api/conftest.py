@@ -9,16 +9,14 @@ from api import aws
 from api.settings import get_settings
 from tests.ddb import create_table
 
-BUSINESS_POOL = "us-east-1_TESTBIZ"
-CUSTOMER_POOL = "us-east-1_TESTCUS"
+USER_POOL = "us-east-1_TESTPOOL"
 ISS = "https://cognito-idp.us-east-1.amazonaws.com/{}"
 
 
 @pytest.fixture(autouse=True)
 def api_env(monkeypatch):
     monkeypatch.setenv("TABLE_NAME", "sumaat")
-    monkeypatch.setenv("BUSINESS_POOL_ID", BUSINESS_POOL)
-    monkeypatch.setenv("CUSTOMER_POOL_ID", CUSTOMER_POOL)
+    monkeypatch.setenv("USER_POOL_ID", USER_POOL)
     for cached in (get_settings, aws.table, aws.cognito):
         cached.cache_clear()
     yield
@@ -26,13 +24,12 @@ def api_env(monkeypatch):
         cached.cache_clear()
 
 
-def owner_claims(sub="owner-sub-1", groups="owner", restaurant_id=None) -> dict:
-    # Pool id read at call time: the `ddb` fixture swaps in moto's generated pool id.
-    # cognito:username == sub here; in the real business pool the username is also a UUID.
+def owner_claims(sub="owner-sub-1", groups="customer,owner", restaurant_id=None) -> dict:
+    # No "iss" here: with_claims() adds our pool's issuer at request time (the `ddb` fixture swaps in
+    # moto's generated pool id). cognito:username == sub here; in the real pool the username is also a UUID.
     claims = {
         "sub": sub,
         "cognito:username": sub,
-        "iss": ISS.format(os.environ["BUSINESS_POOL_ID"]),
         "name": "Test Owner",
         "cognito:groups": groups,
     }
@@ -42,7 +39,13 @@ def owner_claims(sub="owner-sub-1", groups="owner", restaurant_id=None) -> dict:
 
 
 def customer_claims(sub="customer-sub-1") -> dict:
-    return {"sub": sub, "iss": ISS.format(CUSTOMER_POOL), "name": "Sara", "phone_number": "+966500000001"}
+    return {
+        "sub": sub,
+        "cognito:username": sub,
+        "name": "Sara",
+        "phone_number": "+966500000001",
+        "cognito:groups": "customer",
+    }
 
 
 def with_claims(app, claims: dict | None):
@@ -50,7 +53,8 @@ def with_claims(app, claims: dict | None):
 
     async def wrapped(scope, receive, send):
         if scope["type"] == "http" and claims is not None:
-            scope = {**scope, "aws.event": {"requestContext": {"authorizer": {"claims": claims}}}}
+            full = {"iss": ISS.format(os.environ["USER_POOL_ID"]), **claims}  # explicit iss wins
+            scope = {**scope, "aws.event": {"requestContext": {"authorizer": {"claims": full}}}}
         await app(scope, receive, send)
 
     return wrapped
@@ -68,20 +72,20 @@ def make_client():
 
 @pytest.fixture
 def ddb(monkeypatch):
-    """moto table `sumaat` + moto business pool with users owner-sub-1, owner-sub-2 (owners), cashier-sub-1."""
+    """moto table `sumaat` + moto user pool with users owner-sub-1, owner-sub-2 (owners), cashier-sub-1."""
     with mock_aws():
         table = create_table(boto3.resource("dynamodb", region_name="us-east-1"))
         cognito = boto3.client("cognito-idp", region_name="us-east-1")
         pool_id = cognito.create_user_pool(
-            PoolName="sumaat-business",
+            PoolName="sumaat-users",
             Schema=[{"Name": "restaurantId", "AttributeDataType": "String", "Mutable": True}],
         )["UserPool"]["Id"]
-        for group in ("owner", "cashier"):
+        for group in ("customer", "owner", "cashier"):
             cognito.create_group(UserPoolId=pool_id, GroupName=group)
         for username in ("owner-sub-1", "owner-sub-2", "cashier-sub-1"):
             cognito.admin_create_user(UserPoolId=pool_id, Username=username, MessageAction="SUPPRESS")
 
-        monkeypatch.setenv("BUSINESS_POOL_ID", pool_id)
+        monkeypatch.setenv("USER_POOL_ID", pool_id)
         for cached in (get_settings, aws.table, aws.cognito):
             cached.cache_clear()
         yield table, cognito, pool_id

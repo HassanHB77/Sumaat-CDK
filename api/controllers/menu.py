@@ -4,13 +4,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from api.auth import Principal, require_business
+from api.auth import Principal, require_groups
 from api.models import CategoriesOut, MenuItemCreate, MenuItemOut, MenuItemUpdate
 from api.services import categories, menu
 
 router = APIRouter(tags=["menu"])
 
-Owner = Annotated[Principal, Depends(require_business("owner"))]
+Owner = Annotated[Principal, Depends(require_groups("owner"))]
 
 
 @router.get("/categories", response_model=CategoriesOut)

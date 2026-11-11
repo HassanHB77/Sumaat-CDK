@@ -8,7 +8,7 @@ Usage:
   uv run python scripts/seed.py --skip-owners                         # table only
   uv run python scripts/seed.py --dry-run                             # print, write nothing
 
-Pool id defaults to outputs.json (SumaatAuth.BusinessUserPoolId).
+Pool id defaults to outputs.json (SumaatAuth.UserPoolId).
 """
 
 import argparse
@@ -113,6 +113,8 @@ def ensure_owner(cognito, pool_id: str, owner: dict, restaurant_id: str, passwor
                 {"Name": "email", "Value": email},
                 {"Name": "email_verified", "Value": "true"},
                 {"Name": "name", "Value": owner["name"]},
+                {"Name": "phone_number", "Value": owner["phone"]},  # fake demo number
+                {"Name": "custom:signupRole", "Value": "owner"},
             ],
         )["User"]["Attributes"]
 
@@ -122,7 +124,8 @@ def ensure_owner(cognito, pool_id: str, owner: dict, restaurant_id: str, passwor
         Username=email,
         UserAttributes=[{"Name": "custom:restaurantId", "Value": restaurant_id}],
     )
-    cognito.admin_add_user_to_group(UserPoolId=pool_id, Username=email, GroupName="owner")
+    for group in ("customer", "owner"):  # same groups a self-registered owner gets
+        cognito.admin_add_user_to_group(UserPoolId=pool_id, Username=email, GroupName=group)
     return next(a["Value"] for a in attrs if a["Name"] == "sub")
 
 
@@ -146,6 +149,10 @@ def seed(table, cognito=None, pool_id: str | None = None, password: str | None =
             summary["owners"].append({"restaurant": r["name"], "email": r["owner"]["email"]})
 
         table.put_item(Item=restaurant_item(r, owner_sub, ts))
+        if owner_sub:
+            # Same one-restaurant-per-owner lock the API writes on POST /restaurants.
+            table.put_item(Item={"PK": f"OWNER#{owner_sub}", "SK": "RESTAURANT", "type": "OWNER_LOCK",
+                                 "restaurantId": rid, "createdAt": ts})
         summary["restaurants"] += 1
 
         with table.batch_writer() as batch:
@@ -188,7 +195,7 @@ def main() -> None:
         password = os.environ.get("SEED_OWNER_PASSWORD")
         if not password:
             sys.exit("Set SEED_OWNER_PASSWORD (min 8 chars, upper, lower, digit, symbol) or use --skip-owners")
-        pool_id = args.pool_id or json.loads((ROOT / "outputs.json").read_text())["SumaatAuth"]["BusinessUserPoolId"]
+        pool_id = args.pool_id or json.loads((ROOT / "outputs.json").read_text())["SumaatAuth"]["UserPoolId"]
         cognito = boto3.client("cognito-idp", region_name=args.region)
 
     print(json.dumps(seed(table, cognito, pool_id, password), indent=2, ensure_ascii=False))
