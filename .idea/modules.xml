@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Sumaat-CDK.iml" filepath="$PROJECT_DIR$/.idea/Sumaat-CDK.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/sumaat.iml" filepath="$PROJECT_DIR$/.idea/sumaat.iml" />
     </modules>
   </component>
 </project>

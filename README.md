@@ -1,65 +1,25 @@
+# Sumaat
 
-# Welcome to your CDK Python project!
+Pickup-only food ordering POC for Al-Ahsa (AWS Builder Accelerator, Nov 2026).
+Infrastructure is AWS CDK in Python, managed with [uv](https://docs.astral.sh/uv/).
 
-You should explore the contents of this project. It demonstrates a CDK app with an instance of a stack (`sumaat_cdk_stack`)
-which contains an Amazon SQS queue that is subscribed to an Amazon SNS topic.
-
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
-
-This project is set up like a standard Python project.  The initialization process also creates
-a virtualenv within this project, stored under the .venv directory.  To create the virtualenv
-it assumes that there is a `python3` executable in your path with access to the `venv` package.
-If for any reason the automatic creation of the virtualenv fails, you can create the virtualenv
-manually once the init process completes.
-
-To manually create a virtualenv on MacOS and Linux:
+## Layout
 
 ```
-$ python3 -m venv .venv
+app.py            # CDK app: stacks in deploy order, cdk-nag, project=sumaat tag
+infra/            # CDK stacks
+functions/        # small Lambdas (e.g. Cognito triggers)
+api/              # FastAPI + Mangum Lambda
+tests/unit/       # pytest
 ```
 
-After the init process completes and the virtualenv is created, you can use the following
-step to activate your virtualenv.
+## Setup
 
 ```
-$ source .venv/bin/activate
+uv sync                 # installs Python 3.14 + all deps into .venv
+uv run pytest -q        # unit tests
+uv run cdk synth        # synth + cdk-nag checks
+uv run cdk deploy <Stack> --outputs-file outputs.json
 ```
 
-If you are a Windows platform, you would activate the virtualenv like this:
-
-```
-% .venv\Scripts\activate.bat
-```
-
-Once the virtualenv is activated, you can install the required dependencies.
-
-```
-$ pip install -r requirements.txt
-```
-
-At this point you can now synthesize the CloudFormation template for this code.
-
-```
-$ cdk synth
-```
-
-You can now begin exploring the source code, contained in the hello directory.
-There is also a very trivial test included that can be run like this:
-
-```
-$ pytest
-```
-
-To add additional dependencies, for example other CDK libraries, just add to
-your requirements.txt file and rerun the `pip install -r requirements.txt`
-command.
-
-## Useful commands
-
- * `cdk ls`          list all stacks in the app
- * `cdk synth`       emits the synthesized CloudFormation template
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk docs`        open CDK documentation
-
-Enjoy!
+Region: `us-east-1`. Every resource is tagged `project=sumaat`.

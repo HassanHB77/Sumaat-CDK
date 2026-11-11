@@ -19,3 +19,6 @@ venv.bak/
 # CDK Context & Staging files
 .cdk.staging/
 cdk.out/
+# Sumaat
+outputs.json
+.DS_Store
