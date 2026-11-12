@@ -82,3 +82,15 @@ export type PlaceOrderBody = {
   items: { itemId: string; qty: number }[] // never prices: the API uses its own
   note?: string
 }
+
+// --- cashiers ---
+
+export type Cashier = {
+  sub: string
+  name: string
+  email: string
+  phone: string
+  status: 'active' | 'disabled'
+  createdAt: string
+  updatedAt: string
+}

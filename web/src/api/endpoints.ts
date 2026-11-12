@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { Categories, MenuItem, NearbyRestaurant, Order, PlaceOrderBody, Restaurant, RestaurantDetail } from './types'
+import type { Cashier, Categories, MenuItem, NearbyRestaurant, Order, PlaceOrderBody, Restaurant, RestaurantDetail } from './types'
 
 // --- public (no login) ---
 
@@ -97,5 +97,34 @@ export function updateMenuItem(restaurantId: string, itemId: string, body: Parti
     method: 'PATCH',
     auth: true,
     body,
+  })
+}
+
+// --- owner: cashiers ---
+
+const cashiersPath = (restaurantId: string) => `/restaurants/${encodeURIComponent(restaurantId)}/cashiers`
+
+export function listCashiers(restaurantId: string, signal?: AbortSignal) {
+  return apiFetch<Cashier[]>(cashiersPath(restaurantId), { auth: true, signal })
+}
+
+export type CashierInput = { name: string; email: string; phone: string; password: string }
+
+export function createCashier(restaurantId: string, body: CashierInput) {
+  return apiFetch<Cashier>(cashiersPath(restaurantId), { method: 'POST', auth: true, body })
+}
+
+export function setCashierEnabled(restaurantId: string, sub: string, enabled: boolean) {
+  return apiFetch<Cashier>(`${cashiersPath(restaurantId)}/${encodeURIComponent(sub)}/${enabled ? 'enable' : 'disable'}`, {
+    method: 'POST',
+    auth: true,
+  })
+}
+
+export function resetCashierPassword(restaurantId: string, sub: string, password: string) {
+  return apiFetch<null>(`${cashiersPath(restaurantId)}/${encodeURIComponent(sub)}/password`, {
+    method: 'POST',
+    auth: true,
+    body: { password },
   })
 }

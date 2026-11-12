@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router'
 import { GuestOnly, RequireRole, StaffRedirect } from './auth/guards'
 import { CounterPage, OwnerHome } from './counter/pages'
 import { StaffLayout } from './counter/StaffLayout'
+import { CashiersPage } from './owner/CashiersPage'
 import { OwnerMenuPage } from './owner/OwnerMenuPage'
 import { OwnerSetupPage, RestaurantSettingsPage } from './owner/RestaurantPages'
 import { CartPage } from './pages/CartPage'
@@ -74,7 +75,7 @@ export const router = createBrowserRouter([
           { path: '/owner/setup', element: <OwnerSetupPage /> },
           { path: '/owner/menu', element: <OwnerMenuPage /> },
           { path: '/owner/restaurant', element: <RestaurantSettingsPage /> },
-          { path: '/owner/cashiers', element: <PlaceholderPage titleKey="page.ownerCashiers" milestone="M6" /> },
+          { path: '/owner/cashiers', element: <CashiersPage /> },
         ],
       },
     ],
