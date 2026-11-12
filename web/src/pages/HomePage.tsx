@@ -1,6 +1,5 @@
 import { Link } from 'react-router'
 import { LogoMark } from '../components/Logo'
-import { StatusLine } from '../components/StatusLine'
 import { useLanguage } from '../i18n/LanguageContext'
 
 export function HomePage() {
@@ -26,7 +25,6 @@ export function HomePage() {
       <Link to="/owner/signup" className="link link-hover text-muted">
         {t('home.owner')}
       </Link>
-      <StatusLine />
     </main>
   )
 }

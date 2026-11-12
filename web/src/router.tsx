@@ -1,7 +1,9 @@
 import { createBrowserRouter } from 'react-router'
 import { HomePage } from './pages/HomePage'
+import { MenuPage } from './pages/MenuPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { RestaurantsPage } from './pages/RestaurantsPage'
 import { RootLayout } from './pages/RootLayout'
 
 /**
@@ -16,8 +18,8 @@ export const router = createBrowserRouter([
       { path: '/', element: <HomePage /> },
 
       // public + customer
-      { path: '/restaurants', element: <PlaceholderPage titleKey="page.restaurants" milestone="M1" /> },
-      { path: '/r/:restaurantId', element: <PlaceholderPage titleKey="page.menu" milestone="M1" /> },
+      { path: '/restaurants', element: <RestaurantsPage /> },
+      { path: '/r/:restaurantId', element: <MenuPage /> },
       { path: '/cart', element: <PlaceholderPage titleKey="page.cart" milestone="M3" /> },
       { path: '/orders', element: <PlaceholderPage titleKey="page.orders" milestone="M3" /> },
       { path: '/orders/:orderId', element: <PlaceholderPage titleKey="page.order" milestone="M3" /> },
