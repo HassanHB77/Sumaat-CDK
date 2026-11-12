@@ -35,3 +35,33 @@ export function pickName(obj: { name?: string; nameAr?: string }, lang: Lang): s
   const en = obj.name?.trim()
   return (lang === 'ar' ? ar || en : en || ar) ?? ''
 }
+
+const LOCALE: Record<Lang, string> = {
+  en: 'en-GB',
+  ar: 'ar-SA-u-ca-gregory-nu-latn', // Gregorian calendar + Western digits in Arabic
+}
+
+/**
+ * "#7 · Thu 12 Nov" / "#7 · الخميس 12 نوفمبر". Numbers restart every business day, so the date always goes with them.
+ * businessDate is a plain date: read it at noon UTC so no time zone can shift the day.
+ */
+export function formatOrderLabel(orderNumber: number, businessDate: string, lang: Lang): string {
+  const day = new Date(`${businessDate}T12:00:00Z`)
+  const text = new Intl.DateTimeFormat(LOCALE[lang], {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(day)
+  return `#${orderNumber} · ${text.replace(/,/g, '')}`
+}
+
+/** UTC ISO -> "14:05" in Riyadh time (24 h). */
+export function formatTime(iso: string, lang: Lang): string {
+  return new Intl.DateTimeFormat(LOCALE[lang], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'Asia/Riyadh',
+  }).format(new Date(iso))
+}

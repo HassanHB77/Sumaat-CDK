@@ -68,7 +68,7 @@ RESTAURANTS = [
         "district": "Al-Mubarraz Center",
         "lat": 25.4086,
         "lng": 49.5823,
-        "hours": "07:00-23:00",
+        "hours": "00:00-00:00",  # open 24 h: demo restaurant that always takes orders
         "owner": {"email": "owner.mubarraz@example.com", "name": "Noura Al-Mubarrak", "phone": "+966500000103"},
         "cashier": {"email": "cashier.mubarraz@example.com", "name": "Reem Al-Mubarrazi", "phone": "+966500000203"},
         "items": [

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { DietTag, MenuItem, RestaurantDetail } from '../api/types'
 import { categoryLabel, dietLabel } from '../i18n/labels'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -136,8 +136,8 @@ export function DietBadges({ tags }: { tags: DietTag[] }) {
   )
 }
 
-/** Name, price, calories, diet badges. The "+" / quantity stepper is added with the cart (M3). */
-export function MenuItemCard({ item }: { item: MenuItem }) {
+/** Name, price, calories, diet badges; `action` = the Add button / quantity stepper (or owner controls later). */
+export function MenuItemCard({ item, action }: { item: MenuItem; action?: ReactNode }) {
   const { lang } = useLanguage()
   return (
     <article className="flex items-start justify-between gap-3 rounded-box bg-base-100 p-4 shadow-sm">
@@ -148,9 +148,12 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
         </p>
         <DietBadges tags={item.dietTags} />
       </div>
-      <p className="shrink-0 font-bold" dir="ltr">
-        {formatMoney(item.priceHalalas, lang)}
-      </p>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <p className="font-bold" dir="ltr">
+          {formatMoney(item.priceHalalas, lang)}
+        </p>
+        {action}
+      </div>
     </article>
   )
 }

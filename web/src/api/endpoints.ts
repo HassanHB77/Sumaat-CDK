@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { Categories, NearbyRestaurant, RestaurantDetail } from './types'
+import type { Categories, NearbyRestaurant, Order, PlaceOrderBody, RestaurantDetail } from './types'
 
 // --- public (no login) ---
 
@@ -14,4 +14,22 @@ export function getRestaurant(id: string, signal?: AbortSignal) {
 
 export function getCategories(signal?: AbortSignal) {
   return apiFetch<Categories>('/categories', { signal })
+}
+
+// --- customer ---
+
+export function placeOrder(body: PlaceOrderBody) {
+  return apiFetch<Order>('/orders', { method: 'POST', body, auth: true })
+}
+
+export function getOrder(id: string, signal?: AbortSignal) {
+  return apiFetch<Order>(`/orders/${encodeURIComponent(id)}`, { auth: true, signal })
+}
+
+export function getMyOrders(signal?: AbortSignal) {
+  return apiFetch<Order[]>('/orders/mine', { auth: true, signal })
+}
+
+export function cancelOrder(id: string) {
+  return apiFetch<Order>(`/orders/${encodeURIComponent(id)}/cancel`, { method: 'POST', auth: true })
 }

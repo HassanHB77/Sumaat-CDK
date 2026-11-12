@@ -1,10 +1,13 @@
 import { createBrowserRouter } from 'react-router'
 import { GuestOnly, RequireRole, StaffRedirect } from './auth/guards'
+import { CartPage } from './pages/CartPage'
 import { ConfirmPage } from './pages/ConfirmPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { MenuPage } from './pages/MenuPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { OrderPage } from './pages/OrderPage'
+import { OrdersPage } from './pages/OrdersPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { RestaurantsPage } from './pages/RestaurantsPage'
 import { RootLayout } from './pages/RootLayout'
@@ -31,14 +34,14 @@ export const router = createBrowserRouter([
           { path: '/', element: <HomePage /> },
           { path: '/restaurants', element: <RestaurantsPage /> },
           { path: '/r/:restaurantId', element: <MenuPage /> },
-          { path: '/cart', element: <PlaceholderPage titleKey="page.cart" milestone="M3" /> },
+          { path: '/cart', element: <CartPage /> },
         ],
       },
       {
         element: <RequireRole roles={['customer']} />,
         children: [
-          { path: '/orders', element: <PlaceholderPage titleKey="page.orders" milestone="M3" /> },
-          { path: '/orders/:orderId', element: <PlaceholderPage titleKey="page.order" milestone="M3" /> },
+          { path: '/orders', element: <OrdersPage /> },
+          { path: '/orders/:orderId', element: <OrderPage /> },
         ],
       },
       {

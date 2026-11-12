@@ -1,6 +1,7 @@
 import { Link, NavLink } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
+import { CartIcon } from './CartParts'
 import { LanguageToggle } from './LanguageToggle'
 import { Logo } from './Logo'
 import { UserMenu } from './UserMenu'
@@ -8,7 +9,6 @@ import { UserMenu } from './UserMenu'
 /**
  * Header (fixed 56 px high: sticky bars below rely on it).
  * Visitor: Log in. Customer: My orders + name menu. Owner/cashier: name menu only (their own header comes in M4/M5).
- * The cart badge arrives with the cart (M3).
  */
 export function PublicHeader() {
   const { t } = useLanguage()
@@ -32,6 +32,7 @@ export function PublicHeader() {
             {t('nav.orders')}
           </NavLink>
         )}
+        {(status !== 'signedIn' || role === 'customer') && <CartIcon />}
         <LanguageToggle className="text-secondary-content" />
         {status === 'signedIn' ? (
           <UserMenu />
