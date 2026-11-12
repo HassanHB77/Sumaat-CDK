@@ -21,8 +21,8 @@ export function UserMenu() {
       <div tabIndex={0} role="button" className={`btn btn-sm btn-ghost max-w-40 truncate ${ON_DARK}`}>
         {t('auth.hello', { name: first })}
       </div>
-      <ul tabIndex={0} className="menu dropdown-content z-40 mt-2 w-60 rounded-box bg-base-100 p-2 text-base-content shadow">
-        {/* DaisyUI menu rows don't shrink: cap the row and let the inner span clip long emails with "…". */}
+      <ul tabIndex={0} className="menu dropdown-content z-40 mt-2 w-60 flex-nowrap rounded-box bg-base-100 p-2 text-base-content shadow">
+        {/* DaisyUI .menu wraps (rows grow to their content): flex-nowrap above + this row capped, span clips with "…". */}
         <li className="menu-title min-w-0 max-w-full">
           <span className="block truncate text-start" dir="ltr" title={user.email}>
             {user.email}

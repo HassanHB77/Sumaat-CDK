@@ -4,9 +4,9 @@ Money is always an int in halalas (100 halalas = 1 SAR). Never floats for money.
 lat/lng are floats in JSON; services convert them to Decimal for DynamoDB (boto3 rejects floats).
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from api.validation import check_person_name, check_saudi_mobile
 
@@ -58,6 +58,19 @@ MAX_RADIUS_KM = 4.4
 class _In(BaseModel):
     # Unknown fields -> 422. A client can never sneak in ownerSub, PK, GSI1PK, ...
     model_config = ConfigDict(extra="forbid")
+
+    # Text is trimmed (spaces, tabs, new lines at both ends) BEFORE validation, so "  Kabsa\n" is saved as "Kabsa"
+    # and a blank "   " counts as empty. Passwords are kept exactly as typed.
+    _KEEP_AS_IS: ClassVar[frozenset[str]] = frozenset({"password"})
+
+    @model_validator(mode="before")
+    @classmethod
+    def _trim_text(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        return {
+            k: (v.strip() if isinstance(v, str) and k not in cls._KEEP_AS_IS else v) for k, v in data.items()
+        }
 
 
 class RestaurantCreate(_In):

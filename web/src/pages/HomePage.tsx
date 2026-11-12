@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { getNearby } from '../api/endpoints'
+import { useAuth } from '../auth/AuthContext'
 import { LogoMark } from '../components/Logo'
 import { useLanguage } from '../i18n/LanguageContext'
 import { DEFAULT_RADIUS, loadSpot } from '../lib/geo'
@@ -8,6 +9,7 @@ import { usePageTitle } from '../lib/usePageTitle'
 
 export function HomePage() {
   const { t } = useLanguage()
+  const { status } = useAuth()
   usePageTitle(null)
   // "3 open near you now": one cheap query around the customer's last spot (default Al-Hofuf).
   const nearby = useQuery({
@@ -45,9 +47,11 @@ export function HomePage() {
           </li>
         ))}
       </ol>
-      <Link to="/owner/signup" className="link link-hover text-muted">
-        {t('home.owner')}
-      </Link>
+      {status === 'signedOut' && (
+        <Link to="/owner/signup" className="link link-hover text-muted">
+          {t('home.owner')}
+        </Link>
+      )}
     </main>
   )
 }

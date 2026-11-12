@@ -25,6 +25,10 @@ export function LoginPage() {
   const [newPassword, setNewPassword] = useState('')
   const [step, setStep] = useState<'login' | 'newPassword'>('login')
   const [error, setError] = useState<MessageKey | null>(null)
+  // Email warning under the field once it was left (blur) or after submit; updates live from then on.
+  const [emailTouched, setEmailTouched] = useState(false)
+  const emailError: MessageKey | null = !email.trim() ? 'auth.err.required' : !isEmail(email) ? 'auth.err.email' : null
+  const showEmailError = emailTouched ? emailError : null
   const [busy, setBusy] = useState(false)
 
   async function finish() {
@@ -35,10 +39,9 @@ export function LoginPage() {
 
   async function onLogin(e: FormEvent) {
     e.preventDefault()
-    if (!isEmail(email) || !password) {
-      setError(!isEmail(email) ? 'auth.err.email' : 'auth.err.required')
-      return
-    }
+    setEmailTouched(true)
+    if (emailError) return setError(null)
+    if (!password) return setError('auth.err.required')
     setBusy(true)
     setError(null)
     try {
@@ -86,14 +89,16 @@ export function LoginPage() {
                 <h1 className="card-title mb-2 text-2xl">{t('page.login')}</h1>
                 {params.get('confirmed') && <p className="alert alert-success mb-2">{t('auth.login.confirmed')}</p>}
                 {params.get('reset') && <p className="alert alert-success mb-2">{t('auth.login.reset')}</p>}
-                <FormField label={t('auth.email')}>
+                <FormField label={t('auth.email')} error={showEmailError ? t(showEmailError) : null}>
                   <input
-                    className="input w-full"
+                    className={`input w-full ${showEmailError ? 'input-error' : ''}`}
                     type="email"
                     autoComplete="email"
                     dir="ltr"
+                    aria-invalid={Boolean(showEmailError) || undefined}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setEmailTouched(true)}
                   />
                 </FormField>
                 <FormField label={t('auth.password')}>

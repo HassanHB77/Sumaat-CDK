@@ -20,11 +20,11 @@ export function FormField({
       <legend className="fieldset-legend">{label}</legend>
       {children}
       {error ? (
-        <p className="label text-error" role="alert">
+        <p className="label whitespace-normal text-error" role="alert">
           {error}
         </p>
       ) : hint ? (
-        <p className="label">{hint}</p>
+        <p className="label whitespace-normal">{hint}</p>
       ) : null}
     </fieldset>
   )

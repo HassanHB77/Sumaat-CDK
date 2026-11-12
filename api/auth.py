@@ -43,6 +43,10 @@ def claims_from(request: Request) -> dict | None:
     return claims or None
 
 
+def _trimmed(value):
+    return value.strip() if isinstance(value, str) else value
+
+
 def principal_from(request: Request) -> Principal:
     claims = claims_from(request)
     if not claims or not claims.get("sub"):
@@ -53,9 +57,10 @@ def principal_from(request: Request) -> Principal:
     return Principal(
         sub=claims["sub"],
         username=claims.get("cognito:username") or claims["sub"],
-        name=claims.get("name"),
-        email=claims.get("email"),
-        phone=claims.get("phone_number"),
+        # Trimmed: these are copied onto orders (a scripted sign-up could have sent " Sara\n").
+        name=_trimmed(claims.get("name")),
+        email=_trimmed(claims.get("email")),
+        phone=_trimmed(claims.get("phone_number")),
         groups=parse_groups(claims.get("cognito:groups")),
         restaurant_id=claims.get("custom:restaurantId") or None,
     )
