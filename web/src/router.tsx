@@ -1,5 +1,7 @@
 import { createBrowserRouter } from 'react-router'
 import { GuestOnly, RequireRole, StaffRedirect } from './auth/guards'
+import { CounterPage, OwnerHome } from './counter/pages'
+import { StaffLayout } from './counter/StaffLayout'
 import { CartPage } from './pages/CartPage'
 import { ConfirmPage } from './pages/ConfirmPage'
 import { HomePage } from './pages/HomePage'
@@ -20,12 +22,13 @@ import { SignUpPage } from './pages/SignUpPage'
  * Access (one role per account):
  *   public pages      visitors + customers; owners/cashiers are sent to their own area (StaffRedirect)
  *   /orders*          customers only
- *   /owner/*          owners only (except /owner/signup)
- *   /counter          cashiers only
  *   login/sign-up     signed-out only (GuestOnly)
+ *   /owner/*          owners only (except /owner/signup), staff layout with tabs
+ *   /counter          cashiers only, staff layout
  */
 export const router = createBrowserRouter([
   {
+    // Customer side: public header, cart bar.
     element: <RootLayout />,
     children: [
       {
@@ -54,22 +57,29 @@ export const router = createBrowserRouter([
           { path: '/forgot-password', element: <PlaceholderPage titleKey="page.forgot" milestone="M7" /> },
         ],
       },
+      { path: '*', element: <NotFoundPage /> },
+    ],
+  },
+  {
+    // Owner area.
+    element: <RequireRole roles={['owner']} />,
+    children: [
       {
-        element: <RequireRole roles={['owner']} />,
+        element: <StaffLayout />,
         children: [
-          { path: '/owner', element: <PlaceholderPage titleKey="page.owner" milestone="M5" /> },
+          { path: '/owner', element: <OwnerHome /> },
+          { path: '/owner/orders', element: <CounterPage /> },
           { path: '/owner/setup', element: <PlaceholderPage titleKey="page.ownerSetup" milestone="M5" /> },
-          { path: '/owner/orders', element: <PlaceholderPage titleKey="page.ownerOrders" milestone="M4" /> },
           { path: '/owner/menu', element: <PlaceholderPage titleKey="page.ownerMenu" milestone="M5" /> },
           { path: '/owner/restaurant', element: <PlaceholderPage titleKey="page.ownerRestaurant" milestone="M5" /> },
           { path: '/owner/cashiers', element: <PlaceholderPage titleKey="page.ownerCashiers" milestone="M6" /> },
         ],
       },
-      {
-        element: <RequireRole roles={['cashier']} />,
-        children: [{ path: '/counter', element: <PlaceholderPage titleKey="page.counter" milestone="M4" /> }],
-      },
-      { path: '*', element: <NotFoundPage /> },
     ],
+  },
+  {
+    // Cashier: the counter only.
+    element: <RequireRole roles={['cashier']} />,
+    children: [{ element: <StaffLayout />, children: [{ path: '/counter', element: <CounterPage /> }] }],
   },
 ])

@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { Categories, NearbyRestaurant, Order, PlaceOrderBody, RestaurantDetail } from './types'
+import type { Categories, NearbyRestaurant, Order, PlaceOrderBody, Restaurant, RestaurantDetail } from './types'
 
 // --- public (no login) ---
 
@@ -32,4 +32,27 @@ export function getMyOrders(signal?: AbortSignal) {
 
 export function cancelOrder(id: string) {
   return apiFetch<Order>(`/orders/${encodeURIComponent(id)}/cancel`, { method: 'POST', auth: true })
+}
+
+// --- staff (owner or active cashier of the restaurant) ---
+
+export function getRestaurantOrders(restaurantId: string, signal?: AbortSignal) {
+  return apiFetch<Order[]>(`/restaurants/${encodeURIComponent(restaurantId)}/orders`, { auth: true, signal })
+}
+
+export type StaffAction = 'accept' | 'ready' | 'served' | 'reject'
+
+export function changeOrderStatus(orderId: string, action: StaffAction, reason?: string) {
+  return apiFetch<Order>(`/orders/${encodeURIComponent(orderId)}/${action}`, {
+    method: 'POST',
+    auth: true,
+    body: action === 'reject' ? { reason: reason || null } : undefined,
+  })
+}
+
+export function setPaused(restaurantId: string, paused: boolean) {
+  return apiFetch<Restaurant>(`/restaurants/${encodeURIComponent(restaurantId)}/${paused ? 'pause' : 'resume'}`, {
+    method: 'POST',
+    auth: true,
+  })
 }
