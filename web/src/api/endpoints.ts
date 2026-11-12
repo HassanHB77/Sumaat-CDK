@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { Categories, NearbyRestaurant, Order, PlaceOrderBody, Restaurant, RestaurantDetail } from './types'
+import type { Categories, MenuItem, NearbyRestaurant, Order, PlaceOrderBody, Restaurant, RestaurantDetail } from './types'
 
 // --- public (no login) ---
 
@@ -54,5 +54,48 @@ export function setPaused(restaurantId: string, paused: boolean) {
   return apiFetch<Restaurant>(`/restaurants/${encodeURIComponent(restaurantId)}/${paused ? 'pause' : 'resume'}`, {
     method: 'POST',
     auth: true,
+  })
+}
+
+// --- owner ---
+
+export type RestaurantInput = {
+  name: string
+  nameAr: string
+  description: string
+  city: string
+  district: string
+  lat: number
+  lng: number
+  hours: string
+}
+
+export function createRestaurant(body: RestaurantInput) {
+  return apiFetch<Restaurant>('/restaurants', { method: 'POST', auth: true, body })
+}
+
+export function updateRestaurant(id: string, body: Partial<RestaurantInput>) {
+  return apiFetch<Restaurant>(`/restaurants/${encodeURIComponent(id)}`, { method: 'PATCH', auth: true, body })
+}
+
+export type MenuItemInput = {
+  name: string
+  nameAr: string
+  category: string
+  priceHalalas: number
+  calories: number
+  dietTags: string[]
+  isAvailable: boolean
+}
+
+export function addMenuItem(restaurantId: string, body: MenuItemInput) {
+  return apiFetch<MenuItem>(`/restaurants/${encodeURIComponent(restaurantId)}/menu`, { method: 'POST', auth: true, body })
+}
+
+export function updateMenuItem(restaurantId: string, itemId: string, body: Partial<MenuItemInput>) {
+  return apiFetch<MenuItem>(`/restaurants/${encodeURIComponent(restaurantId)}/menu/${encodeURIComponent(itemId)}`, {
+    method: 'PATCH',
+    auth: true,
+    body,
   })
 }
