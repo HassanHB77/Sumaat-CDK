@@ -1,7 +1,8 @@
 """WebStack: the website (S3 + CloudFront), with /api/* forwarded to the API on the same address.
 
     Browser --https--> CloudFront (https://dxxxx.cloudfront.net)
-                         |-- /api/*  --> API Gateway stage /prod   (no caching, Authorization passed through)
+                         |-- /api/*   --> API Gateway stage /prod   (no caching, Authorization passed through)
+                         |-- /agent/* --> Bedrock AgentCore Runtime (AI chat, streamed; Step 9)
                          '-- /*      --> private S3 bucket         (the React build, or a placeholder page)
 
 One address for site + API = no CORS in production, and the frontend calls the relative path "/api".
@@ -13,7 +14,7 @@ for a year.
 
 from pathlib import Path
 
-from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack
+from aws_cdk import CfnOutput, Duration, Fn, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudfront_origins as origins
@@ -49,6 +50,7 @@ class WebStack(Stack):
         api: apigw.RestApi,
         user_pool: cognito.IUserPool,
         user_pool_client: cognito.IUserPoolClient,
+        agent_runtime_arn: str,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -108,6 +110,8 @@ class WebStack(Stack):
             },
         )
 
+        self._agent_behaviour(agent_runtime_arn)
+
         site_url = f"https://{self.distribution.distribution_domain_name}"
         map_key = self._map_key(site_url)
 
@@ -151,6 +155,38 @@ class WebStack(Stack):
         CfnOutput(self, "SiteUrl", value=site_url)
 
         self._suppress_nag()
+
+    def _agent_behaviour(self, runtime_arn: str) -> None:
+        """/agent/chat -> the AgentCore Runtime endpoint, on the site's own address (no CORS).
+
+        Nothing is cached; the Authorization header (Cognito access token, checked by AgentCore) and the
+        chat session-id header are passed through, and the reply streams back as it is written.
+        """
+        code = (FUNCTIONS / "agent_rewrite.js").read_text().replace("__RUNTIME_ARN__", "${RuntimeArn}")
+        rewrite = cloudfront.Function(
+            self,
+            "AgentRewriteFn",
+            code=cloudfront.FunctionCode.from_inline(Fn.sub(code, {"RuntimeArn": runtime_arn})),
+            runtime=cloudfront.FunctionRuntime.JS_2_0,
+        )
+        self.distribution.add_behavior(
+            "/agent/*",
+            origins.HttpOrigin(
+                f"bedrock-agentcore.{self.region}.amazonaws.com",
+                protocol_policy=cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+                read_timeout=Duration.seconds(60),  # a long answer with several tool calls
+            ),
+            viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+            allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+            cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+            origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+            compress=False,  # don't buffer the stream
+            function_associations=[
+                cloudfront.FunctionAssociation(
+                    function=rewrite, event_type=cloudfront.FunctionEventType.VIEWER_REQUEST
+                )
+            ],
+        )
 
     def _map_key(self, site_url: str) -> str:
         """Amazon Location (Maps v2) API key for the browser map, and its value for config.json.

@@ -49,3 +49,27 @@ def test_strip_api_prefix(uri, expected):
 )
 def test_spa_index(uri, expected):
     assert run("spa_index.js", uri) == expected
+
+
+ARN = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/sumaat_agent-abc123"
+
+
+def run_agent(uri: str, method: str = "POST") -> dict:
+    code = FUNCTIONS.joinpath("agent_rewrite.js").read_text().replace("__RUNTIME_ARN__", ARN)
+    req = json.dumps({"uri": uri, "method": method, "querystring": {}})
+    script = code + f"\nconsole.log(JSON.stringify(handler({{request: {req}}})));"
+    return json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
+
+
+def test_agent_rewrite_to_runtime_invocations():
+    out = run_agent("/agent/chat")
+    assert out["uri"] == (
+        "/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-east-1%3A123456789012%3Aruntime%2Fsumaat_agent-abc123"
+        "/invocations"
+    )
+    assert out["querystring"] == {"qualifier": {"value": "DEFAULT"}}
+
+
+@pytest.mark.parametrize("uri, method", [("/agent/chat", "GET"), ("/agent/other", "POST"), ("/agent/", "POST")])
+def test_agent_rewrite_refuses_anything_else(uri, method):
+    assert run_agent(uri, method)["statusCode"] == 404

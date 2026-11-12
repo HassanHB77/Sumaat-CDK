@@ -9,6 +9,7 @@ from infra.data_stack import DataStack
 from infra.web_stack import WEB_PLACEHOLDER, WebStack, site_source_dir
 
 ENV = cdk.Environment(account="123456789012", region="us-east-1")
+AGENT_ARN = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/sumaat_agent-abc123"
 
 
 @pytest.fixture(scope="module")
@@ -17,7 +18,15 @@ def stack() -> WebStack:
     data = DataStack(app, "SumaatData", env=ENV)
     auth = AuthStack(app, "SumaatAuth", env=ENV)
     api = ApiStack(app, "SumaatApi", table=data.table, user_pool=auth.user_pool, env=ENV)
-    web = WebStack(app, "SumaatWeb", api=api.api, user_pool=auth.user_pool, user_pool_client=auth.client, env=ENV)
+    web = WebStack(
+        app,
+        "SumaatWeb",
+        api=api.api,
+        user_pool=auth.user_pool,
+        user_pool_client=auth.client,
+        agent_runtime_arn=AGENT_ARN,
+        env=ENV,
+    )
     apply_project_guards(app)
     app.synth()
     return web
@@ -69,8 +78,12 @@ def test_default_behavior_is_site(template):
     assert "CustomErrorResponses" not in d  # would turn real API 404s into the website
 
 
+def _behaviour(template, pattern: str) -> dict:
+    return next(b for b in _dist(template)["CacheBehaviors"] if b["PathPattern"] == pattern)
+
+
 def test_api_behavior(template):
-    (api,) = _dist(template)["CacheBehaviors"]
+    api = _behaviour(template, "/api/*")
     assert api["PathPattern"] == "/api/*"
     assert api["ViewerProtocolPolicy"] == "redirect-to-https"
     assert set(api["AllowedMethods"]) == {"GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"}
@@ -79,17 +92,37 @@ def test_api_behavior(template):
     assert len(api["FunctionAssociations"]) == 1
 
 
+def test_agent_behaviour(template):
+    agent = _behaviour(template, "/agent/*")
+    assert agent["ViewerProtocolPolicy"] == "https-only"
+    assert "POST" in agent["AllowedMethods"]
+    assert agent["CachePolicyId"] == "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"  # Managed-CachingDisabled
+    assert agent["OriginRequestPolicyId"] == "b689b0a8-53d0-40ab-baf2-68738e2966ac"  # passes Authorization
+    assert agent["Compress"] is False
+    origin = next(o for o in _dist(template)["Origins"] if o["Id"] == agent["TargetOriginId"])
+    assert origin["DomainName"] == "bedrock-agentcore.us-east-1.amazonaws.com"
+    assert origin["CustomOriginConfig"]["OriginReadTimeout"] == 60
+
+
+def test_agent_rewrite_function_has_runtime_arn(template):
+    fns = template.find_resources("AWS::CloudFront::Function")
+    code = next(f["Properties"]["FunctionCode"] for f in fns.values() if "Fn::Sub" in f["Properties"]["FunctionCode"])
+    body, values = code["Fn::Sub"]
+    assert 'var RUNTIME_ARN = "${RuntimeArn}";' in body
+    assert values == {"RuntimeArn": AGENT_ARN}
+
+
 def test_api_origin_uses_prod_stage(template):
     origins = _dist(template)["Origins"]
-    api_origin = next(o for o in origins if "CustomOriginConfig" in o)
+    api_origin = next(o for o in origins if "OriginPath" in o)
     # CDK computes it at deploy time from the API URL (https://x.execute-api.../prod/): "/" + 4th part = "/prod".
     join = api_origin["OriginPath"]["Fn::Join"]
     assert join[1][0] == "/" and join[1][1]["Fn::Select"][0] == 3
     assert api_origin["CustomOriginConfig"]["OriginProtocolPolicy"] == "https-only"
 
 
-def test_two_cloudfront_functions(template):
-    template.resource_count_is("AWS::CloudFront::Function", 2)
+def test_three_cloudfront_functions(template):
+    template.resource_count_is("AWS::CloudFront::Function", 3)  # SPA routing, /api strip, /agent rewrite
 
 
 def test_site_upload_invalidates_cache(template):

@@ -18,14 +18,19 @@ lambda = [
     "fastapi>=0.120",
     "mangum>=0.19",
 ]
+# What the AI agent container needs (Step 9; runs on Bedrock AgentCore Runtime).
+# After changing it: uv lock && uv export --only-group agent --no-hashes --no-emit-project -o agent/requirements.txt
+agent = [
+    "bedrock-agentcore>=1.26.0",
+]
 dev = [
     {include-group = "lambda"},
+    {include-group = "agent"},
     "pytest>=8.4",
     "boto3>=1.40",
     "moto[dynamodb,cognitoidp]>=5.1",
     "httpx>=0.28",
 ]
-
 [tool.uv]
 package = false
 
