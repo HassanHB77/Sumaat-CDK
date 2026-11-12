@@ -13,6 +13,7 @@ import type { MessageKey } from '../i18n/en'
 import { useLanguage } from '../i18n/LanguageContext'
 import { pickName } from '../lib/format'
 import { loadSoundOn, saveSoundOn } from '../lib/sound'
+import { ON_DARK } from '../components/onDark'
 
 export type StaffContext = { restaurantId: string | null; soundOn: boolean }
 
@@ -55,7 +56,7 @@ export function StaffLayout() {
           {restaurant.data && <PauseToggle restaurant={restaurant.data} />}
           <button
             type="button"
-            className="btn btn-sm btn-ghost btn-square"
+            className={`btn btn-sm btn-ghost btn-square ${ON_DARK}`}
             onClick={toggleSound}
             aria-pressed={soundOn}
             aria-label={soundOn ? t('counter.soundOn') : t('counter.soundOff')}
@@ -63,7 +64,7 @@ export function StaffLayout() {
           >
             {soundOn ? '🔔' : '🔕'}
           </button>
-          <LanguageToggle className="text-secondary-content" />
+          <LanguageToggle className={ON_DARK} />
           <UserMenu />
         </div>
         {role === 'owner' && restaurantId && <OwnerTabs />}
@@ -89,7 +90,7 @@ function OwnerTabs() {
         <NavLink
           key={to}
           to={to}
-          className={({ isActive }) => `btn btn-sm shrink-0 ${isActive ? 'btn-primary' : 'btn-ghost text-secondary-content'}`}
+          className={({ isActive }) => `btn btn-sm shrink-0 ${isActive ? 'btn-primary' : `btn-ghost ${ON_DARK}`}`}
         >
           {t(key)}
         </NavLink>

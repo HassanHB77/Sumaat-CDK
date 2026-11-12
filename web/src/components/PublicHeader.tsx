@@ -8,6 +8,7 @@ import { CartIcon } from './CartParts'
 import { LanguageToggle } from './LanguageToggle'
 import { Logo } from './Logo'
 import { UserMenu } from './UserMenu'
+import { ON_DARK, ON_DARK_ACTIVE } from './onDark'
 
 /**
  * Header (fixed 56 px high: sticky bars below rely on it).
@@ -27,7 +28,7 @@ export function PublicHeader() {
   })
   const hasActive = isCustomer && Boolean(mine.data?.some((o) => isOpen(o.status)))
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `btn btn-sm btn-ghost hidden sm:inline-flex ${isActive ? 'btn-active' : ''}`
+    `btn btn-sm btn-ghost hidden sm:inline-flex ${ON_DARK} ${isActive ? ON_DARK_ACTIVE : ''}`
 
   return (
     <header className="sticky top-0 z-30 bg-secondary text-secondary-content shadow">
@@ -41,7 +42,7 @@ export function PublicHeader() {
           </NavLink>
         )}
         {status === 'signedIn' && role === 'customer' && (
-          <NavLink to="/orders" className={({ isActive }) => `btn btn-sm btn-ghost relative ${isActive ? 'btn-active' : ''}`}>
+          <NavLink to="/orders" className={({ isActive }) => `btn btn-sm btn-ghost relative ${ON_DARK} ${isActive ? ON_DARK_ACTIVE : ''}`}>
             {t('nav.orders')}
             {hasActive && (
               <span className="status status-success absolute -end-0.5 top-1 animate-pulse" title={t('nav.activeOrder')} aria-label={t('nav.activeOrder')} />
@@ -49,7 +50,7 @@ export function PublicHeader() {
           </NavLink>
         )}
         {(status !== 'signedIn' || role === 'customer') && <CartIcon />}
-        <LanguageToggle className="text-secondary-content" />
+        <LanguageToggle className={ON_DARK} />
         {status === 'signedIn' ? (
           <UserMenu />
         ) : status === 'signedOut' ? (

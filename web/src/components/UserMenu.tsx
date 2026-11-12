@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
+import { ON_DARK } from './onDark'
 
 /** Name + Log out (DaisyUI dropdown). */
 export function UserMenu() {
@@ -17,12 +18,15 @@ export function UserMenu() {
 
   return (
     <div className="dropdown dropdown-end">
-      <div tabIndex={0} role="button" className="btn btn-sm btn-ghost max-w-40 truncate">
+      <div tabIndex={0} role="button" className={`btn btn-sm btn-ghost max-w-40 truncate ${ON_DARK}`}>
         {t('auth.hello', { name: first })}
       </div>
-      <ul tabIndex={0} className="menu dropdown-content z-40 mt-2 w-48 rounded-box bg-base-100 p-2 text-base-content shadow">
-        <li className="menu-title truncate" dir="ltr">
-          {user.email}
+      <ul tabIndex={0} className="menu dropdown-content z-40 mt-2 w-60 rounded-box bg-base-100 p-2 text-base-content shadow">
+        {/* DaisyUI menu rows don't shrink: cap the row and let the inner span clip long emails with "…". */}
+        <li className="menu-title min-w-0 max-w-full">
+          <span className="block truncate text-start" dir="ltr" title={user.email}>
+            {user.email}
+          </span>
         </li>
         <li>
           <button type="button" onClick={onLogout}>

@@ -4,6 +4,7 @@ import { useCart } from '../cart/CartContext'
 import { MAX_QTY } from '../cart/cartLogic'
 import { useLanguage } from '../i18n/LanguageContext'
 import { formatMoney } from '../lib/format'
+import { ON_DARK } from './onDark'
 
 /** − n + (always left-to-right so the buttons don't swap sides in Arabic). */
 export function QtyStepper({
@@ -67,7 +68,7 @@ export function CartIcon() {
   const { count } = useCart()
   const { t } = useLanguage()
   return (
-    <Link to="/cart" className="btn btn-sm btn-ghost btn-square relative" aria-label={t('nav.cart')}>
+    <Link to="/cart" className={`btn btn-sm btn-ghost btn-square relative ${ON_DARK}`} aria-label={t('nav.cart')}>
       <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
         <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6" strokeLinecap="round" strokeLinejoin="round" />
         <circle cx="10" cy="20" r="1.4" />
