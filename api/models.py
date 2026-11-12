@@ -52,7 +52,8 @@ def check_password_rules(password: str) -> str:
 StrongPassword = Annotated[Password, AfterValidator(check_password_rules)]
 
 # The 3x3 geohash block always covers at least ~4.4 km around the caller (see api/geo.cells_around).
-MAX_RADIUS_KM = 4.4
+# Users are offered a round 4 km (1 / 3 / 4 in the app), safely inside that guarantee.
+MAX_RADIUS_KM = 4.0
 
 
 class _In(BaseModel):

@@ -244,7 +244,7 @@ export const ar: Record<MessageKey, string> = {
   'owner.form.district': "الحي",
   'owner.form.location': "الموقع",
   'owner.form.locationHint': "حرّك الخريطة حتى يقع الدبوس على مطعمك.",
-  'owner.form.locationNote': "يجدك العملاء من خلال هذا الموقع (ضمن 4.4 كم).",
+  'owner.form.locationNote': "يجدك العملاء من خلال هذا الموقع (ضمن 4 كم).",
   'owner.form.save': "حفظ",
   'owner.form.saved': "تم الحفظ.",
   'owner.form.noChanges': "لا توجد تغييرات",

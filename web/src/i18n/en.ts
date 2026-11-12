@@ -242,7 +242,7 @@ export const en = {
   'owner.form.district': "District",
   'owner.form.location': "Location",
   'owner.form.locationHint': "Drag the map so the pin sits on your restaurant.",
-  'owner.form.locationNote': "Customers find you by this spot (within 4.4 km).",
+  'owner.form.locationNote': "Customers find you by this spot (within 4 km).",
   'owner.form.save': "Save",
   'owner.form.saved': "Saved.",
   'owner.form.noChanges': "No changes",

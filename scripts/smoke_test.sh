@@ -112,6 +112,7 @@ expect "categories include Mains" "$(field '.categories | index("Mains") != null
 check "GET /restaurants near me (4 km)" 200 GET "/restaurants?lat=$LAT&lng=$LNG&radiusKm=4"
 expect "near me finds 3 demo restaurants" "$(field '[.[] | select(.name | test("Nakhla|Qaisariya|Mubarraz"))] | length')" 3
 check "GET /restaurants radius 4.5 -> 422" 422 GET "/restaurants?lat=$LAT&lng=$LNG&radiusKm=4.5"
+check "GET /restaurants radius 4.2 -> 422 (cap is 4 km)" 422 GET "/restaurants?lat=$LAT&lng=$LNG&radiusKm=4.2"
 check "GET /restaurants missing lat -> 422" 422 GET "/restaurants?lng=$LNG"
 check "GET /restaurants/{id}" 200 GET "/restaurants/$RID"
 expect "restaurant has openNow / isPaused" "$(field 'has("openNow") and has("isPaused")')" true

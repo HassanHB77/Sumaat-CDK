@@ -48,7 +48,7 @@ def cells_around(lat: float, lng: float) -> list[str]:
 
     Shifting the point by exactly one cell size always lands in the adjacent cell, so no decoding
     is needed. The block always reaches at least one full cell (~4.4 km E-W in Al-Ahsa) past you,
-    which is why the API caps the radius at 4.4 km.
+    which is why the API caps the radius at a round 4 km.
     """
     cells: list[str] = []
     for dlat in (-CELL_DEG, 0, CELL_DEG):

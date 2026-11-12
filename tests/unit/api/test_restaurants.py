@@ -52,6 +52,7 @@ def test_near_me_far_away_is_empty(seeded, public):
     "params",
     [
         {**NAKHLA, "radiusKm": 4.5},
+        {**NAKHLA, "radiusKm": 4.2},  # above the 4 km cap
         {**NAKHLA, "radiusKm": 0},
         {"lat": 200, "lng": 49.5},
         {"lng": 49.5},
