@@ -8,6 +8,8 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
+from api.validation import check_person_name, check_saudi_mobile
+
 DietTag = Literal["vegetarian", "vegan", "gluten_free", "dairy_free", "high_protein", "spicy"]
 
 Name = Annotated[str, Field(min_length=1, max_length=80)]
@@ -23,7 +25,10 @@ DietTags = Annotated[list[DietTag], Field(max_length=6), AfterValidator(lambda t
 
 # Same rules as the Cognito pool (infra/auth_stack.py), checked here first for a clear 422.
 Password = Annotated[str, Field(min_length=8, max_length=128)]
-Phone = Annotated[str, Field(pattern=r"^\+[1-9]\d{7,14}$", examples=["+966500000001"])]  # E.164
+# Saudi mobile, E.164 (+9665XXXXXXXX). Same rule as the sign-up trigger and the web form (api/validation.py).
+Phone = Annotated[str, Field(examples=["+966500000001"]), AfterValidator(check_saudi_mobile)]
+# A person's name: Arabic/English letters, spaces, - ' . and emoji; no numbers or symbols.
+PersonName = Annotated[str, Field(min_length=1, max_length=80), AfterValidator(check_person_name)]
 # name@domain.tld; no spaces, commas, semicolons or brackets (a pasted "a@b.com," was accepted before).
 Email = Annotated[str, Field(pattern=r"^[^@\s,;<>()\[\]]+@[^@\s,;<>()\[\]]+\.[A-Za-z]{2,}$", max_length=254)]
 
@@ -138,7 +143,7 @@ class RestaurantDetail(RestaurantOut):
 
 
 class CashierCreate(_In):
-    name: Name
+    name: PersonName
     email: Email
     phone: Phone
     password: StrongPassword

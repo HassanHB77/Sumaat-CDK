@@ -25,6 +25,11 @@ export function cognitoErrorKey(error: unknown): MessageKey {
       return 'auth.err.password'
     case 'InvalidParameterException':
       return /phone/i.test(message) ? 'auth.err.phone' : 'auth.err.generic'
+    case 'UserLambdaValidationException': // refused by our pre sign-up check (functions/pre_sign_up)
+      if (/invalid_name/.test(message)) return 'auth.err.name'
+      if (/invalid_email/.test(message)) return 'auth.err.email'
+      if (/invalid_phone/.test(message)) return 'auth.err.phone'
+      return 'auth.err.generic'
     case 'UserNotConfirmedException':
       return 'auth.err.notConfirmed'
     case 'NetworkError':

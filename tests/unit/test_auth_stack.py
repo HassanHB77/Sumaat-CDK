@@ -42,14 +42,14 @@ def test_pool_email_password_with_required_phone(template):
                     Match.object_like({"Name": "signupRole", "AttributeDataType": "String", "Mutable": True}),
                 ]
             ),
-            "LambdaConfig": {"PostConfirmation": Match.any_value()},
+            "LambdaConfig": {"PostConfirmation": Match.any_value(), "PreSignUp": Match.any_value()},
         },
     )
 
 
 def test_no_sms_or_custom_auth_left(template):
     pool = next(iter(template.find_resources("AWS::Cognito::UserPool").values()))["Properties"]
-    assert set(pool["LambdaConfig"]) == {"PostConfirmation"}
+    assert set(pool["LambdaConfig"]) == {"PostConfirmation", "PreSignUp"}
     assert "SmsConfiguration" not in pool
 
 
@@ -74,8 +74,8 @@ def test_client(template):
         assert attr in client["WriteAttributes"]
 
 
-def test_one_function_python314_arm64(template):
-    template.resource_count_is("AWS::Lambda::Function", 1)
+def test_two_functions_python314_arm64(template):
+    template.resource_count_is("AWS::Lambda::Function", 2)  # post confirmation + pre sign-up
     template.all_resources_properties(
         "AWS::Lambda::Function", {"Runtime": "python3.14", "Architectures": ["arm64"]}
     )

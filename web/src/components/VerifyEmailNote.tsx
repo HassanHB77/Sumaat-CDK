@@ -40,9 +40,9 @@ export function VerifyEmailNote() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pt-4">
-      <div role="status" className="alert alert-info">
+      <div role="status" className="alert alert-info grid-cols-[1fr_auto]">
         <span>📧 {t('verify.note')}</span>
-        <button type="button" className="btn btn-sm" onClick={dismiss}>
+        <button type="button" className="btn btn-sm shrink-0 whitespace-nowrap" onClick={dismiss}>
           {t('verify.ok')}
         </button>
       </div>

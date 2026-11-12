@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import type { MessageKey } from '../i18n/en'
 import { useLanguage } from '../i18n/LanguageContext'
 import { passwordChecks, type PasswordCheck } from '../lib/password'
+import { cleanMobileInput } from '../lib/phone'
 
 export function FormField({
   label,
@@ -29,14 +30,19 @@ export function FormField({
   )
 }
 
-/** "+966" fixed box + the rest of the number. Always left-to-right, also in Arabic. */
+/**
+ * "+966" fixed box + the rest of the number. Always left-to-right, also in Arabic.
+ * Keeps digits only (max 9; a pasted +966 / 00966 / leading 0 is dropped), see cleanMobileInput.
+ */
 export function PhoneInput({
   value,
   onChange,
+  onBlur,
   invalid,
 }: {
   value: string
   onChange: (v: string) => void
+  onBlur?: () => void
   invalid?: boolean
 }) {
   return (
@@ -48,9 +54,10 @@ export function PhoneInput({
         inputMode="numeric"
         autoComplete="tel-national"
         placeholder="5XXXXXXXX"
-        maxLength={13}
+        aria-invalid={invalid || undefined}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(cleanMobileInput(e.target.value))}
+        onBlur={onBlur}
       />
     </div>
   )
@@ -60,11 +67,13 @@ export function PasswordInput({
   value,
   onChange,
   autoComplete,
+  onBlur,
   invalid,
 }: {
   value: string
   onChange: (v: string) => void
   autoComplete: 'current-password' | 'new-password'
+  onBlur?: () => void
   invalid?: boolean
 }) {
   const { t } = useLanguage()
@@ -75,8 +84,10 @@ export function PasswordInput({
         className={`input join-item w-full ${invalid ? 'input-error' : ''}`}
         type={show ? 'text' : 'password'}
         autoComplete={autoComplete}
+        aria-invalid={invalid || undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
       />
       <button type="button" className="btn join-item" onClick={() => setShow((s) => !s)} aria-pressed={show}>
         {show ? t('auth.hide') : t('auth.show')}
@@ -101,6 +112,3 @@ export function PasswordChecklist({ password }: { password: string }) {
     </ul>
   )
 }
-
-/** name@domain.tld; no spaces, commas, semicolons or brackets. Same rule as the API (api/models.py). */
-export const isEmail = (v: string) => /^[^@\s,;<>()[\]]+@[^@\s,;<>()[\]]+\.[A-Za-z]{2,}$/.test(v.trim())

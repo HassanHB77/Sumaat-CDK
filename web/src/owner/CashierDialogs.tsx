@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import type { CashierInput } from '../api/endpoints'
-import { FormField, isEmail, PasswordChecklist, PasswordInput, PhoneInput } from '../components/FormParts'
+import { FormField, PasswordChecklist, PasswordInput, PhoneInput } from '../components/FormParts'
 import type { MessageKey } from '../i18n/en'
 import { useLanguage } from '../i18n/LanguageContext'
 import { generatePassword, isStrongPassword } from '../lib/password'
-import { isValidSaudiMobile, toE164 } from '../lib/phone'
+import { toE164 } from '../lib/phone'
+import { useTouched } from '../lib/useTouched'
+import { PERSON_FIELDS, validatePerson, type PersonErrors, type PersonField } from '../lib/validation'
 
-type Fields = 'name' | 'email' | 'phone' | 'password'
+type Fields = PersonField
 
-export function validateCashier(v: Record<Fields, string>): Partial<Record<Fields, MessageKey>> {
-  const e: Partial<Record<Fields, MessageKey>> = {}
-  if (!v.name.trim()) e.name = 'auth.err.required'
-  if (!isEmail(v.email)) e.email = 'auth.err.email'
-  if (!isValidSaudiMobile(v.phone)) e.phone = 'auth.err.phone'
-  if (!isStrongPassword(v.password)) e.password = 'auth.err.password'
-  return e
+/** Same rules as sign-up (and the API / Cognito sign-up check). */
+export function validateCashier(v: Record<Fields, string>): PersonErrors {
+  return validatePerson(v)
 }
 
 /** <dialog> wrapper: opens/closes with `open`, Esc/backdrop call onClose. */
@@ -36,13 +34,23 @@ function Modal({ open, onClose, children }: { open: boolean; onClose: () => void
   )
 }
 
-function PasswordWithGenerate({ value, onChange, invalid }: { value: string; onChange: (v: string) => void; invalid: boolean }) {
+function PasswordWithGenerate({
+  value,
+  onChange,
+  onBlur,
+  invalid,
+}: {
+  value: string
+  onChange: (v: string) => void
+  onBlur?: () => void
+  invalid: boolean
+}) {
   const { t } = useLanguage()
   return (
     <>
       <div className="flex gap-2">
         <div className="flex-1">
-          <PasswordInput value={value} onChange={onChange} autoComplete="new-password" invalid={invalid} />
+          <PasswordInput value={value} onChange={onChange} autoComplete="new-password" onBlur={onBlur} invalid={invalid} />
         </div>
         <button type="button" className="btn" onClick={() => onChange(generatePassword())}>
           {t('cashiers.generate')}
@@ -70,23 +78,25 @@ export function AddCashierDialog({
   const { t } = useLanguage()
   const empty = { name: '', email: '', phone: '', password: '' }
   const [v, setV] = useState(empty)
-  const [errors, setErrors] = useState<Partial<Record<Fields, MessageKey>>>({})
+  // Warnings show once a field was left (blur) or after submit, and update live from then on.
+  const { isTouched, touch, touchAll, reset } = useTouched<Fields>()
 
   useEffect(() => {
     if (open) {
       setV({ ...empty, password: generatePassword() })
-      setErrors({})
+      reset()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  const found = validateCashier(v)
+  const shown = (k: Fields): MessageKey | undefined => (isTouched(k) ? found[k] : undefined)
   const set = (k: Fields, value: string) => setV((old) => ({ ...old, [k]: value }))
-  const err = (k: Fields) => (errors[k] ? t(errors[k]!) : null)
+  const err = (k: Fields) => (shown(k) ? t(shown(k)!) : null)
 
   function submit(e: FormEvent) {
     e.preventDefault()
-    const found = validateCashier(v)
-    setErrors(found)
+    touchAll(PERSON_FIELDS)
     if (Object.keys(found).length) return
     onSave({ name: v.name.trim(), email: v.email.trim().toLowerCase(), phone: toE164(v.phone), password: v.password })
   }
@@ -96,16 +106,36 @@ export function AddCashierDialog({
       <form onSubmit={submit} noValidate className="modal-box flex flex-col gap-1">
         <h3 className="text-lg font-bold">{t('cashiers.add')}</h3>
         <FormField label={t('auth.name')} error={err('name')}>
-          <input className="input w-full" maxLength={80} value={v.name} onChange={(e) => set('name', e.target.value)} />
+          <input
+            className={`input w-full ${shown('name') ? 'input-error' : ''}`}
+            maxLength={80}
+            aria-invalid={Boolean(shown('name')) || undefined}
+            value={v.name}
+            onChange={(e) => set('name', e.target.value)}
+            onBlur={() => touch('name')}
+          />
         </FormField>
         <FormField label={t('auth.email')} error={err('email')}>
-          <input className="input w-full" type="email" dir="ltr" value={v.email} onChange={(e) => set('email', e.target.value)} />
+          <input
+            className={`input w-full ${shown('email') ? 'input-error' : ''}`}
+            type="email"
+            dir="ltr"
+            aria-invalid={Boolean(shown('email')) || undefined}
+            value={v.email}
+            onChange={(e) => set('email', e.target.value)}
+            onBlur={() => touch('email')}
+          />
         </FormField>
         <FormField label={t('auth.phone')} error={err('phone')} hint={t('auth.phoneHint')}>
-          <PhoneInput value={v.phone} onChange={(x) => set('phone', x)} invalid={Boolean(errors.phone)} />
+          <PhoneInput value={v.phone} onChange={(x) => set('phone', x)} onBlur={() => touch('phone')} invalid={Boolean(shown('phone'))} />
         </FormField>
         <FormField label={t('auth.password')} error={err('password')}>
-          <PasswordWithGenerate value={v.password} onChange={(x) => set('password', x)} invalid={Boolean(errors.password)} />
+          <PasswordWithGenerate
+            value={v.password}
+            onChange={(x) => set('password', x)}
+            onBlur={() => touch('password')}
+            invalid={Boolean(shown('password'))}
+          />
         </FormField>
         {serverError && (
           <p role="alert" className="alert alert-error mt-2">

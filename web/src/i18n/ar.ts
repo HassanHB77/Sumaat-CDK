@@ -131,7 +131,8 @@ export const ar: Record<MessageKey, string> = {
   'auth.err.notConfirmed': "يرجى تأكيد بريدك الإلكتروني أولًا.",
   'auth.err.generic': "حدث خطأ. حاول مرة أخرى.",
   'auth.err.required': "هذا الحقل مطلوب.",
-  'auth.err.email': "أدخل بريدًا إلكترونيًا صحيحًا.",
+  'auth.err.email': "أدخل بريدًا إلكترونيًا صحيحًا، مثل name@example.com.",
+  'auth.err.name': "استخدم حروفًا عربية أو إنجليزية فقط (المسافات و - ' . والإيموجي مسموحة)، بدون أرقام أو رموز.",
   'auth.err.code': "أدخل الرمز المكوّن من 6 أرقام.",
 
   'common.cancel': "إلغاء",

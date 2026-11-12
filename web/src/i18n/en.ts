@@ -129,7 +129,8 @@ export const en = {
   'auth.err.notConfirmed': "Please confirm your email first.",
   'auth.err.generic': "Something went wrong. Please try again.",
   'auth.err.required': "This field is required.",
-  'auth.err.email': "Enter a valid email.",
+  'auth.err.email': "Enter a valid email, like name@example.com.",
+  'auth.err.name': "Use Arabic or English letters only (spaces, - ' . and emoji are fine). No numbers or symbols.",
   'auth.err.code': "Enter the 6-digit code.",
 
   'common.cancel': "Cancel",

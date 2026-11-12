@@ -104,6 +104,26 @@ class AuthStack(Stack):
         )
         self.user_pool.add_trigger(cognito.UserPoolOperation.POST_CONFIRMATION, post_confirmation)
 
+        # Server-side check of name / email / Saudi mobile for EVERY new account (browser sign-up goes straight to
+        # Cognito, never through our API). No AWS permissions needed: it only reads the event.
+        pre_sign_up = lambda_.Function(
+            self,
+            "PreSignUpFn",
+            runtime=RUNTIME,
+            architecture=lambda_.Architecture.ARM_64,
+            handler="handler.handler",
+            code=lambda_.Code.from_asset(str(FUNCTIONS_DIR / "pre_sign_up")),
+            timeout=Duration.seconds(5),
+            memory_size=128,
+            log_group=logs.LogGroup(
+                self,
+                "PreSignUpFnLogs",
+                retention=logs.RetentionDays.ONE_MONTH,
+                removal_policy=RemovalPolicy.DESTROY,
+            ),
+        )
+        self.user_pool.add_trigger(cognito.UserPoolOperation.PRE_SIGN_UP, pre_sign_up)
+
         # Separate Policy + wildcard pool ARN: referencing user_pool.user_pool_arn here
         # would create a pool <-> Lambda circular dependency.
         post_confirmation.role.attach_inline_policy(

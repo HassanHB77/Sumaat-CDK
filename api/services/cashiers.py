@@ -19,6 +19,7 @@ from api.models import CashierCreate
 from api.services.restaurants import load_owned
 from api.services.staff import cashier_key
 from api.settings import get_settings
+from api.validation import EMAIL_MESSAGE, NAME_MESSAGE, PHONE_MESSAGE
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,12 @@ def _cognito_error(e: ClientError):
         return Conflict("An account with this email already exists")
     if code in ("InvalidPasswordException", "InvalidParameterException"):
         return Invalid(e.response["Error"].get("Message", "Invalid value"))
+    if code == "UserLambdaValidationException":  # refused by the pre sign-up trigger (same rules as the models)
+        message = e.response["Error"].get("Message", "")
+        for key, text in (("invalid_name", NAME_MESSAGE), ("invalid_email", EMAIL_MESSAGE), ("invalid_phone", PHONE_MESSAGE)):
+            if key in message:
+                return Invalid(text)
+        return Invalid("Invalid value")
     return None
 
 

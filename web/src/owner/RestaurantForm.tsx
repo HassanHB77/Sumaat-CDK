@@ -86,11 +86,11 @@ export function RestaurantForm({
           <div className="flex flex-wrap items-end gap-3" dir="ltr">
             <label className="flex flex-col text-sm">
               {t('owner.form.open')}
-              <input type="time" className="input" value={open} onChange={(e) => setOpen(e.target.value)} />
+              <input type="time" className="input w-40 pe-10" value={open} onChange={(e) => setOpen(e.target.value)} />
             </label>
             <label className="flex flex-col text-sm">
               {t('owner.form.close')}
-              <input type="time" className="input" value={close} onChange={(e) => setClose(e.target.value)} />
+              <input type="time" className="input w-40 pe-10" value={close} onChange={(e) => setClose(e.target.value)} />
             </label>
             {close < open && <span className="pb-2 text-sm text-muted">{t('hours.pastMidnight')}</span>}
           </div>

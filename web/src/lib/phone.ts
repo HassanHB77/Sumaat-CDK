@@ -17,3 +17,18 @@ export function isValidSaudiMobile(input: string): boolean {
 export function toE164(input: string): string {
   return `+966${normalizeSaudiMobile(input)}`
 }
+
+/**
+ * What the phone box keeps while typing/pasting: Western digits only (Arabic-Indic ٠-٩ / ۰-۹ are converted),
+ * without +966 / 00966 / a leading 0, at most 9 digits. "+966 50 123 4567" -> "501234567".
+ */
+export function cleanMobileInput(raw: string): string {
+  let d = (raw ?? '')
+    .replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
+    .replace(/\D/g, '')
+  if (d.startsWith('00966')) d = d.slice(5)
+  else if (d.startsWith('966')) d = d.slice(3)
+  if (d.startsWith('0')) d = d.slice(1)
+  return d.slice(0, 9)
+}

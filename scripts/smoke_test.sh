@@ -187,6 +187,8 @@ else
 fi
 check "POST cashier weak password -> 422" 422 POST "/restaurants/$RID/cashiers" "$OWNER" '{"name":"X","email":"weak.pw@example.com","phone":"+966500000261","password":"weak"}'
 check "POST cashier bad phone -> 422" 422 POST "/restaurants/$RID/cashiers" "$OWNER" '{"name":"X","email":"bad.phone@example.com","phone":"0500000261","password":"Good#2026"}'
+check "POST cashier non-Saudi phone -> 422" 422 POST "/restaurants/$RID/cashiers" "$OWNER" '{"name":"X","email":"us.phone@example.com","phone":"+14155550100","password":"Good#2026"}'
+check "POST cashier name with digits -> 422" 422 POST "/restaurants/$RID/cashiers" "$OWNER" '{"name":"Ali2","email":"bad.name@example.com","phone":"+966500000261","password":"Good#2026"}'
 check "POST cashier with customer's email -> 409" 409 POST "/restaurants/$RID/cashiers" "$OWNER" '{"name":"X","email":"sara@example.com","phone":"+966500000261","password":"Good#2026"}'
 check "GET cashiers as cashier -> 403" 403 GET "/restaurants/$RID/cashiers" "$CASHIER"
 check "GET cashiers as other owner -> 403" 403 GET "/restaurants/$RID/cashiers" "$OTHER_OWNER"

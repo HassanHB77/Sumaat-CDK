@@ -96,10 +96,35 @@ def test_password_rules(setup, password, missing):
         assert missing in r.text or "at least 8" in r.text
 
 
-@pytest.mark.parametrize("phone", ["0500000201", "966500000201", "+96650", "+9665000002011234567"])
+@pytest.mark.parametrize(
+    "phone",
+    ["0500000201", "966500000201", "+96650", "+9665000002011234567", "+9665016283339999", "+14155550100", "+96613123456"],
+)
 def test_bad_phone_is_422(setup, phone):
     *_, owner, rid = setup
-    assert owner.post(f"/restaurants/{rid}/cashiers", json={**CASHIER, "phone": phone}).status_code == 422
+    r = owner.post(f"/restaurants/{rid}/cashiers", json={**CASHIER, "phone": phone})
+    assert r.status_code == 422 and "Saudi mobile" in r.text
+
+
+@pytest.mark.parametrize("name", ["Fahad2", "Fahad_Q", "a@b", "!!", "فهد٣", "🌸", ""])
+def test_bad_name_is_422(setup, name):
+    *_, owner, rid = setup
+    r = owner.post(f"/restaurants/{rid}/cashiers", json={**CASHIER, "name": name})
+    assert r.status_code == 422 and "name" in r.text.lower()
+
+
+@pytest.mark.parametrize("name", ["Fahad Al-Hasawi", "فهد الحساوي", "O'Brien", "Reem 🌸"])
+def test_good_names_accepted(setup, name):
+    *_, owner, rid = setup
+    r = owner.post(f"/restaurants/{rid}/cashiers", json={**CASHIER, "name": name})
+    assert r.status_code == 201, r.text
+    assert r.json()["name"] == name
+
+
+def test_name_is_trimmed(setup):
+    *_, owner, rid = setup
+    r = owner.post(f"/restaurants/{rid}/cashiers", json={**CASHIER, "name": "  Fahad  "})
+    assert r.status_code == 201 and r.json()["name"] == "Fahad"
 
 
 @pytest.mark.parametrize(
@@ -213,3 +238,20 @@ def test_reset_password_weak_is_422(setup, created):
 def test_bad_email_rejected(setup, email):
     *_, owner, rid = setup
     assert owner.post(f"/restaurants/{rid}/cashiers", json={**CASHIER, "email": email}).status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("PreSignUp failed with error invalid_name.", "Name may only contain"),
+        ("PreSignUp failed with error invalid_phone.", "Saudi mobile"),
+        ("PreSignUp failed with error invalid_email.", "valid email"),
+    ],
+)
+def test_pre_sign_up_refusal_becomes_clear_422(message, expected):
+    from botocore.exceptions import ClientError
+
+    from api.services.cashiers import _cognito_error
+
+    err = _cognito_error(ClientError({"Error": {"Code": "UserLambdaValidationException", "Message": message}}, "AdminCreateUser"))
+    assert err.status_code == 422 and expected in err.detail

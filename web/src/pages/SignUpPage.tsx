@@ -2,15 +2,14 @@ import { signUp } from 'aws-amplify/auth'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { cognitoErrorKey } from '../auth/cognitoErrors'
-import { FormField, isEmail, PasswordChecklist, PasswordInput, PhoneInput } from '../components/FormParts'
+import { FormField, PasswordChecklist, PasswordInput, PhoneInput } from '../components/FormParts'
 import { PageContainer } from '../components/PageContainer'
 import type { MessageKey } from '../i18n/en'
 import { useLanguage } from '../i18n/LanguageContext'
 import { usePageTitle } from '../lib/usePageTitle'
-import { isStrongPassword } from '../lib/password'
-import { isValidSaudiMobile, toE164 } from '../lib/phone'
-
-type Errors = Partial<Record<'name' | 'email' | 'phone' | 'password' | 'form', MessageKey>>
+import { toE164 } from '../lib/phone'
+import { useTouched } from '../lib/useTouched'
+import { PERSON_FIELDS, validatePerson, type PersonField } from '../lib/validation'
 
 /** One form for both: /signup (customer) and /owner/signup (owner -> custom:signupRole = "owner"). */
 export function SignUpPage({ role }: { role: 'customer' | 'owner' }) {
@@ -24,23 +23,18 @@ export function SignUpPage({ role }: { role: 'customer' | 'owner' }) {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
-  const [errors, setErrors] = useState<Errors>({})
+  const [formError, setFormError] = useState<MessageKey | null>(null)
   const [busy, setBusy] = useState(false)
-
-  function validate(): Errors {
-    const e: Errors = {}
-    if (!name.trim()) e.name = 'auth.err.required'
-    if (!isEmail(email)) e.email = 'auth.err.email'
-    if (!isValidSaudiMobile(phone)) e.phone = 'auth.err.phone'
-    if (!isStrongPassword(password)) e.password = 'auth.err.password'
-    return e
-  }
+  // Warnings show for a field once it was left (blur) or after submit, and update live from then on.
+  const { isTouched, touch, touchAll } = useTouched<PersonField>()
+  const found = validatePerson({ name, email, phone, password })
+  const shown = (k: PersonField) => (isTouched(k) ? found[k] : undefined)
 
   async function onSubmit(ev: FormEvent) {
     ev.preventDefault()
-    const found = validate()
-    setErrors(found)
+    touchAll(PERSON_FIELDS)
     if (Object.keys(found).length) return
+    setFormError(null)
     setBusy(true)
     const username = email.trim().toLowerCase()
     try {
@@ -51,13 +45,13 @@ export function SignUpPage({ role }: { role: 'customer' | 'owner' }) {
       if (next && role === 'customer') q.set('next', next)
       navigate(`/confirm?${q}`)
     } catch (err) {
-      setErrors({ form: cognitoErrorKey(err) })
+      setFormError(cognitoErrorKey(err))
     } finally {
       setBusy(false)
     }
   }
 
-  const err = (k: keyof Errors) => (errors[k] ? t(errors[k]!) : null)
+  const err = (k: PersonField) => (shown(k) ? t(shown(k)!) : null)
 
   return (
     <PageContainer>
@@ -73,32 +67,43 @@ export function SignUpPage({ role }: { role: 'customer' | 'owner' }) {
             )}
             <FormField label={t('auth.name')} error={err('name')}>
               <input
-                className={`input w-full ${errors.name ? 'input-error' : ''}`}
+                className={`input w-full ${shown('name') ? 'input-error' : ''}`}
                 autoComplete="name"
+                maxLength={80}
+                aria-invalid={Boolean(shown('name')) || undefined}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onBlur={() => touch('name')}
               />
             </FormField>
             <FormField label={t('auth.email')} error={err('email')}>
               <input
-                className={`input w-full ${errors.email ? 'input-error' : ''}`}
+                className={`input w-full ${shown('email') ? 'input-error' : ''}`}
                 type="email"
                 autoComplete="email"
                 dir="ltr"
+                aria-invalid={Boolean(shown('email')) || undefined}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => touch('email')}
               />
             </FormField>
             <FormField label={t('auth.phone')} error={err('phone')} hint={t('auth.phoneHint')}>
-              <PhoneInput value={phone} onChange={setPhone} invalid={Boolean(errors.phone)} />
+              <PhoneInput value={phone} onChange={setPhone} onBlur={() => touch('phone')} invalid={Boolean(shown('phone'))} />
             </FormField>
             <FormField label={t('auth.password')} error={err('password')}>
-              <PasswordInput value={password} onChange={setPassword} autoComplete="new-password" invalid={Boolean(errors.password)} />
+              <PasswordInput
+                value={password}
+                onChange={setPassword}
+                autoComplete="new-password"
+                onBlur={() => touch('password')}
+                invalid={Boolean(shown('password'))}
+              />
               <PasswordChecklist password={password} />
             </FormField>
-            {errors.form && (
+            {formError && (
               <p className="alert alert-error mt-2" role="alert">
-                {t(errors.form)}
+                {t(formError)}
               </p>
             )}
             <button type="submit" className="btn btn-primary mt-4" disabled={busy}>
