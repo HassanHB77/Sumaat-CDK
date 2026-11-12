@@ -308,4 +308,7 @@ export const ar: Record<MessageKey, string> = {
   'nav.activeOrder': "لديك طلب قيد التنفيذ",
 
   'map.unavailable': "الخريطة غير متاحة حاليًا — يمكنك اختيار المنطقة بالأزرار أعلاه.",
+
+  'verify.note': "خطوة أخيرة لتصلك رسالة عند جاهزية طلبك: افتح رسالة Amazon Web Services بعنوان \"Email Address Verification Request\" واضغط على الرابط.",
+  'verify.ok': "حسنًا",
 }

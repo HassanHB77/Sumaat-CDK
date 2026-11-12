@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { cognitoErrorKey } from '../auth/cognitoErrors'
 import { roleHome } from '../auth/session'
 import { FormField } from '../components/FormParts'
+import { rememberVerifyEmailNote } from '../components/VerifyEmailNote'
 import { PageContainer } from '../components/PageContainer'
 import { useToast } from '../components/Toast'
 import type { MessageKey } from '../i18n/en'
@@ -53,6 +54,7 @@ export function ConfirmPage() {
       }
       let user = await refresh(true)
       if (user && !user.role) user = await refresh(true) // the sign-up trigger adds the group a moment later
+      if (user?.role === 'customer') rememberVerifyEmailNote()
       navigate(roleHome(user?.role ?? null, next), { replace: true })
     } catch (err) {
       setError(cognitoErrorKey(err))

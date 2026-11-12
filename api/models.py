@@ -24,7 +24,8 @@ DietTags = Annotated[list[DietTag], Field(max_length=6), AfterValidator(lambda t
 # Same rules as the Cognito pool (infra/auth_stack.py), checked here first for a clear 422.
 Password = Annotated[str, Field(min_length=8, max_length=128)]
 Phone = Annotated[str, Field(pattern=r"^\+[1-9]\d{7,14}$", examples=["+966500000001"])]  # E.164
-Email = Annotated[str, Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=254)]
+# name@domain.tld; no spaces, commas, semicolons or brackets (a pasted "a@b.com," was accepted before).
+Email = Annotated[str, Field(pattern=r"^[^@\s,;<>()\[\]]+@[^@\s,;<>()\[\]]+\.[A-Za-z]{2,}$", max_length=254)]
 
 
 def check_password_rules(password: str) -> str:

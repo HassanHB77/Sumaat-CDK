@@ -223,6 +223,24 @@ check "POST order with a price field -> 422" 422 POST /orders "$SARA" "{\"restau
 check "POST order qty 0 -> 422" 422 POST /orders "$SARA" "{\"restaurantId\":\"$RID\",\"items\":[{\"itemId\":\"$I1\",\"qty\":0}]}"
 check "POST order unknown restaurant -> 404" 404 POST /orders "$SARA" "{\"restaurantId\":\"nope\",\"items\":[{\"itemId\":\"$I1\",\"qty\":1}]}"
 
+# Leftover open orders from manual testing would block "one open order per restaurant": finish them first.
+# Placed -> the customer cancels it. Accepted/Ready -> the cashier takes it to Served.
+cleanup_open_orders() {
+  local who="$1" token="$2"
+  req GET /orders/mine "$token" >/dev/null
+  jq -r --arg rid "$RID" '.[] | select(.restaurantId == $rid and (.status == "PLACED" or .status == "ACCEPTED" or .status == "READY_FOR_PICKUP")) | "\(.id) \(.status) \(.orderNumber)"' "$BODY" |
+    while read -r oid status num; do
+      case "$status" in
+        PLACED) req POST "/orders/$oid/cancel" "$token" >/dev/null ;;
+        ACCEPTED) req POST "/orders/$oid/ready" "$CASHIER" >/dev/null; req POST "/orders/$oid/served" "$CASHIER" >/dev/null ;;
+        READY_FOR_PICKUP) req POST "/orders/$oid/served" "$CASHIER" >/dev/null ;;
+      esac
+      printf '      cleaned up %s'"'"'s open order #%s (%s)\n' "$who" "$num" "$status"
+    done
+}
+cleanup_open_orders Sara "$SARA"
+cleanup_open_orders Omar "$OMAR"
+
 if [ "$OPEN_NOW" != true ]; then
   skip "placing and handling orders: restaurant is closed now (hours $HOURS, Riyadh time)"
 else

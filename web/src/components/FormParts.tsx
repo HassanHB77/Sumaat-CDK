@@ -102,4 +102,5 @@ export function PasswordChecklist({ password }: { password: string }) {
   )
 }
 
-export const isEmail = (v: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.trim())
+/** name@domain.tld; no spaces, commas, semicolons or brackets. Same rule as the API (api/models.py). */
+export const isEmail = (v: string) => /^[^@\s,;<>()[\]]+@[^@\s,;<>()[\]]+\.[A-Za-z]{2,}$/.test(v.trim())

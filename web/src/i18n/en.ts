@@ -306,6 +306,9 @@ export const en = {
   'nav.activeOrder': "You have an order in progress",
 
   'map.unavailable': "The map is unavailable right now — you can still pick an area with the buttons above.",
+
+  'verify.note': "One more step to get an email when your order is ready: open the email from Amazon Web Services (\"Email Address Verification Request\") and click the link.",
+  'verify.ok': "Got it",
 } as const
 
 export type MessageKey = keyof typeof en

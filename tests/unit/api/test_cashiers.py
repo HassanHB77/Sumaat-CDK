@@ -207,3 +207,9 @@ def test_reset_password_weak_is_422(setup, created):
     *_, owner, rid = setup
     r = owner.post(f"/restaurants/{rid}/cashiers/{created['sub']}/password", json={"password": "weak"})
     assert r.status_code == 422
+
+
+@pytest.mark.parametrize("email", ["ali.mubarraz@example.com,", "a b@example.com", "ali@example", "ali;x@example.com", "<ali@example.com>"])
+def test_bad_email_rejected(setup, email):
+    *_, owner, rid = setup
+    assert owner.post(f"/restaurants/{rid}/cashiers", json={**CASHIER, "email": email}).status_code == 422

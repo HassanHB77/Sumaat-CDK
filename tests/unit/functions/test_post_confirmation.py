@@ -65,3 +65,60 @@ def test_forgot_password_adds_nothing(pool):
         _event(pool_id, "PostConfirmation_ConfirmForgotPassword", "owner"), None
     )
     assert _groups(client, pool_id) == []
+
+
+# --- automatic SES verification for new customers (sandbox) ------------------------------------
+
+
+class FakeSes:
+    def __init__(self, error_code=None):
+        self.requested = []
+        self.error_code = error_code
+
+    def create_email_identity(self, EmailIdentity):
+        from botocore.exceptions import ClientError
+
+        if self.error_code:
+            raise ClientError({"Error": {"Code": self.error_code, "Message": "x"}}, "CreateEmailIdentity")
+        self.requested.append(EmailIdentity)
+
+
+def _signup(pool, role, email, ses, monkeypatch, auto="1"):
+    client, pool_id = pool
+    monkeypatch.setenv("AUTO_VERIFY_EMAIL", auto)
+    fn = load_handler("post_confirmation")
+    fn._ses = ses
+    event = _event(pool_id, "PostConfirmation_ConfirmSignUp", role)
+    event["request"]["userAttributes"]["email"] = email
+    assert fn.handler(event, None) is event  # sign-up always succeeds
+    return _groups(client, pool_id)
+
+
+def test_customer_email_sent_to_ses_for_verification(pool, monkeypatch):
+    ses = FakeSes()
+    _signup(pool, "customer", "real.person@gmail.com", ses, monkeypatch)
+    assert ses.requested == ["real.person@gmail.com"]
+
+
+def test_owner_not_verified(pool, monkeypatch):
+    ses = FakeSes()
+    _signup(pool, "owner", "owner.real@gmail.com", ses, monkeypatch)
+    assert ses.requested == []
+
+
+def test_demo_addresses_and_switch_off_skip(pool, monkeypatch):
+    ses = FakeSes()
+    _signup(pool, "customer", "sara@example.com", ses, monkeypatch)
+    assert ses.requested == []
+
+
+def test_switched_off(pool, monkeypatch):
+    ses = FakeSes()
+    _signup(pool, "customer", "real.person@gmail.com", ses, monkeypatch, auto="0")
+    assert ses.requested == []
+
+
+@pytest.mark.parametrize("code", ["AlreadyExistsException", "LimitExceededException", "AccessDeniedException"])
+def test_ses_problems_never_block_signup(pool, monkeypatch, code):
+    groups = _signup(pool, "customer", "real.person@gmail.com", FakeSes(error_code=code), monkeypatch)
+    assert groups == ["customer"]

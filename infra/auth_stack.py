@@ -92,6 +92,9 @@ class AuthStack(Stack):
             code=lambda_.Code.from_asset(str(FUNCTIONS_DIR / "post_confirmation")),
             timeout=Duration.seconds(5),
             memory_size=256,
+            # 1 = ask SES to verify each new customer's email (SES sandbox: only verified addresses get the pickup
+            # email). Set -c autoVerifyEmail=0 once SES production access is granted.
+            environment={"AUTO_VERIFY_EMAIL": "0" if self.node.try_get_context("autoVerifyEmail") == "0" else "1"},
             log_group=logs.LogGroup(
                 self,
                 "PostConfirmationFnLogs",
@@ -111,7 +114,12 @@ class AuthStack(Stack):
                     iam.PolicyStatement(
                         actions=["cognito-idp:AdminAddUserToGroup"],
                         resources=[f"arn:aws:cognito-idp:{self.region}:{self.account}:userpool/*"],
-                    )
+                    ),
+                    # Customers' emails become SES identities (sandbox) so the pickup email can reach them.
+                    iam.PolicyStatement(
+                        actions=["ses:CreateEmailIdentity"],
+                        resources=[f"arn:aws:ses:{self.region}:{self.account}:identity/*"],
+                    ),
                 ],
             )
         )
@@ -153,6 +161,12 @@ class AuthStack(Stack):
                     "reason": "Post-confirmation trigger uses a wildcard pool ARN (this account + region "
                     "only) to avoid a user pool <-> Lambda circular dependency.",
                     "appliesTo": [{"regex": "/^Resource::arn:aws:cognito-idp:.+:userpool\\/\\*$/"}],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "New customers' email addresses become SES identities (SES sandbox), so "
+                    "CreateEmailIdentity needs this account's identity/* (same account + region only).",
+                    "appliesTo": [{"regex": "/^Resource::arn:aws:ses:.+:identity\\/\\*$/"}],
                 },
                 {
                     "id": "AwsSolutions-L1",
