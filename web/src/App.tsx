@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router/dom'
+import { AuthProvider } from './auth/AuthContext'
 import { ToastProvider } from './components/Toast'
 import { LanguageProvider } from './i18n/LanguageContext'
 import { router } from './router'
@@ -20,15 +21,17 @@ const queryClient = new QueryClient({
   },
 })
 
-/** Auth (M2) and Cart (M3) providers join here. */
+/** Providers: data cache -> auth -> language -> toasts -> pages. The cart provider joins in M3. */
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <LanguageProvider>
-        <ToastProvider>
-          <RouterProvider router={router} />
-        </ToastProvider>
-      </LanguageProvider>
+      <AuthProvider>
+        <LanguageProvider>
+          <ToastProvider>
+            <RouterProvider router={router} />
+          </ToastProvider>
+        </LanguageProvider>
+      </AuthProvider>
     </QueryClientProvider>
   )
 }
