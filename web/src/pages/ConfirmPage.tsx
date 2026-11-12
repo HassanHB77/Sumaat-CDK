@@ -9,6 +9,7 @@ import { PageContainer } from '../components/PageContainer'
 import { useToast } from '../components/Toast'
 import type { MessageKey } from '../i18n/en'
 import { useLanguage } from '../i18n/LanguageContext'
+import { usePageTitle } from '../lib/usePageTitle'
 
 const RESEND_COOLDOWN_S = 30
 
@@ -20,6 +21,7 @@ export function ConfirmPage() {
   const [params] = useSearchParams()
   const email = params.get('email') ?? ''
   const next = params.get('next')
+  usePageTitle(t('page.confirm'))
 
   const [code, setCode] = useState('')
   const [error, setError] = useState<MessageKey | null>(null)

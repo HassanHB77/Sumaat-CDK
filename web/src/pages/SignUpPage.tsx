@@ -6,6 +6,7 @@ import { FormField, isEmail, PasswordChecklist, PasswordInput, PhoneInput } from
 import { PageContainer } from '../components/PageContainer'
 import type { MessageKey } from '../i18n/en'
 import { useLanguage } from '../i18n/LanguageContext'
+import { usePageTitle } from '../lib/usePageTitle'
 import { isStrongPassword } from '../lib/password'
 import { isValidSaudiMobile, toE164 } from '../lib/phone'
 
@@ -17,6 +18,7 @@ export function SignUpPage({ role }: { role: 'customer' | 'owner' }) {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const next = params.get('next')
+  usePageTitle(t(role === 'owner' ? 'page.ownerSignup' : 'page.signup'))
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')

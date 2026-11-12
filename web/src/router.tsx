@@ -7,13 +7,13 @@ import { OwnerMenuPage } from './owner/OwnerMenuPage'
 import { OwnerSetupPage, RestaurantSettingsPage } from './owner/RestaurantPages'
 import { CartPage } from './pages/CartPage'
 import { ConfirmPage } from './pages/ConfirmPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { MenuPage } from './pages/MenuPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { OrderPage } from './pages/OrderPage'
 import { OrdersPage } from './pages/OrdersPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 import { RestaurantsPage } from './pages/RestaurantsPage'
 import { RootLayout } from './pages/RootLayout'
 import { SignUpPage } from './pages/SignUpPage'
@@ -57,7 +57,7 @@ export const router = createBrowserRouter([
           { path: '/signup', element: <SignUpPage role="customer" /> },
           { path: '/owner/signup', element: <SignUpPage role="owner" /> },
           { path: '/confirm', element: <ConfirmPage /> },
-          { path: '/forgot-password', element: <PlaceholderPage titleKey="page.forgot" milestone="M7" /> },
+          { path: '/forgot-password', element: <ForgotPasswordPage /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

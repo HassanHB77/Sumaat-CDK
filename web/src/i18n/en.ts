@@ -293,6 +293,19 @@ export const en = {
   'cashiers.enabledToast': "{name} can use the counter again.",
   'cashiers.disabledToast': "{name} is disabled.",
   'cashiers.loginAt': "Login page",
+
+  'map.searchHere': "Search this area",
+  'map.openMenu': "Open menu",
+  'forgot.intro': "Enter your account email. We'll send you a 6-digit code.",
+  'forgot.send': "Send code",
+  'forgot.sent': "If this email has an account, we sent a code to it. Enter it with your new password.",
+  'forgot.save': "Set new password",
+  'auth.login.forgot': "Forgot password?",
+  'auth.login.reset': "Password changed — please log in.",
+  'home.openNearby': "{count} open near you now",
+  'nav.activeOrder': "You have an order in progress",
+
+  'map.unavailable': "The map is unavailable right now — you can still pick an area with the buttons above.",
 } as const
 
 export type MessageKey = keyof typeof en

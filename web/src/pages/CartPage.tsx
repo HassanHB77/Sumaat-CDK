@@ -10,6 +10,7 @@ import { QtyStepper } from '../components/CartParts'
 import { PageContainer } from '../components/PageContainer'
 import { EmptyState } from '../components/States'
 import { useLanguage } from '../i18n/LanguageContext'
+import { usePageTitle } from '../lib/usePageTitle'
 import { formatMoney, pickName } from '../lib/format'
 import { findOpenOrderAt } from '../lib/orders'
 
@@ -22,6 +23,7 @@ export function CartPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [problem, setProblem] = useState<Problem>(null)
+  usePageTitle(t('page.cart'))
 
   const place = useMutation({
     mutationFn: () => placeOrder(toOrderBody(cart)),

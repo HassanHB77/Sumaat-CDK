@@ -1,17 +1,22 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { getNearby } from '../api/endpoints'
 import { LocationBar } from '../components/LocationBar'
 import { PageContainer } from '../components/PageContainer'
 import { RestaurantCard } from '../components/RestaurantCard'
+import { RestaurantsMap } from '../components/RestaurantsMap'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useLanguage } from '../i18n/LanguageContext'
+import { usePageTitle } from '../lib/usePageTitle'
 import { formatKm } from '../lib/format'
 import { DEFAULT_RADIUS, loadSpot, saveSpot, type Radius, type Spot } from '../lib/geo'
 import { sortRestaurants } from '../lib/menu'
 
 export function RestaurantsPage() {
   const { t, lang } = useLanguage()
+  const navigate = useNavigate()
+  usePageTitle(t('page.restaurants'))
   const [spot, setSpot] = useState<Spot>(loadSpot)
   const [radius, setRadius] = useState<Radius>(DEFAULT_RADIUS)
 
@@ -27,12 +32,19 @@ export function RestaurantsPage() {
     saveSpot(next)
   }
 
-  const list = nearby.data ? sortRestaurants(nearby.data) : []
+  const list = useMemo(() => (nearby.data ? sortRestaurants(nearby.data) : []), [nearby.data])
 
   return (
     <PageContainer title={t('page.restaurants')}>
       <div className="flex flex-col gap-4">
         <LocationBar spot={spot} onSpot={changeSpot} radius={radius} onRadius={setRadius} />
+        <RestaurantsMap
+          center={spot}
+          radiusKm={radius}
+          restaurants={list}
+          onSearchHere={(p) => changeSpot({ lat: p.lat, lng: p.lng, label: 'map' })}
+          onOpen={(id) => navigate(`/r/${id}`)}
+        />
 
         {nearby.isPending ? (
           <LoadingState />

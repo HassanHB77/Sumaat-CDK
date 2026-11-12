@@ -295,4 +295,17 @@ export const ar: Record<MessageKey, string> = {
   'cashiers.enabledToast': "يمكن لـ {name} استخدام شاشة الكاشير مجددًا.",
   'cashiers.disabledToast': "تم تعطيل {name}.",
   'cashiers.loginAt': "صفحة الدخول",
+
+  'map.searchHere': "ابحث في هذه المنطقة",
+  'map.openMenu': "عرض القائمة",
+  'forgot.intro': "أدخل بريد حسابك الإلكتروني وسنرسل لك رمزًا من 6 أرقام.",
+  'forgot.send': "إرسال الرمز",
+  'forgot.sent': "إذا كان لهذا البريد حساب، فقد أرسلنا إليه رمزًا. أدخله مع كلمة المرور الجديدة.",
+  'forgot.save': "تعيين كلمة المرور الجديدة",
+  'auth.login.forgot': "نسيت كلمة المرور؟",
+  'auth.login.reset': "تم تغيير كلمة المرور — يرجى تسجيل الدخول.",
+  'home.openNearby': "{count} مفتوحة بالقرب منك الآن",
+  'nav.activeOrder': "لديك طلب قيد التنفيذ",
+
+  'map.unavailable': "الخريطة غير متاحة حاليًا — يمكنك اختيار المنطقة بالأزرار أعلاه.",
 }

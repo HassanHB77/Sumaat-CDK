@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useToast } from '../components/Toast'
 import { useLanguage } from '../i18n/LanguageContext'
+import { usePageTitle } from '../lib/usePageTitle'
 import { AddCashierDialog, ResetPasswordDialog } from './CashierDialogs'
 
 type Credentials = { email: string; password: string }
@@ -20,6 +21,7 @@ export function CashiersPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
   const key = ['cashiers', restaurantId] as const
+  usePageTitle(t('page.ownerCashiers'))
 
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)

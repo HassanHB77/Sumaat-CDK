@@ -6,6 +6,7 @@ import { OrderStatusBadge } from '../components/OrderParts'
 import { PageContainer } from '../components/PageContainer'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useLanguage } from '../i18n/LanguageContext'
+import { usePageTitle } from '../lib/usePageTitle'
 import { formatMoney, formatOrderLabel, pickName } from '../lib/format'
 import { isOpen } from '../lib/orders'
 
@@ -31,6 +32,7 @@ function OrderRow({ order: o }: { order: Order }) {
 
 export function OrdersPage() {
   const { t } = useLanguage()
+  usePageTitle(t('page.orders'))
   const mine = useQuery({
     queryKey: ['orders', 'mine'],
     queryFn: ({ signal }) => getMyOrders(signal),

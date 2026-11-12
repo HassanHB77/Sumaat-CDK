@@ -10,6 +10,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useToast } from '../components/Toast'
 import { categoryLabel } from '../i18n/labels'
 import { useLanguage } from '../i18n/LanguageContext'
+import { usePageTitle } from '../lib/usePageTitle'
 import { pickName } from '../lib/format'
 import { groupMenu } from '../lib/menu'
 import { changedFields } from './forms'
@@ -25,6 +26,7 @@ export function OwnerMenuPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
   const [asCustomer, setAsCustomer] = useState(false)
+  usePageTitle(t('page.ownerMenu'))
   const [editing, setEditing] = useState<{ item: MenuItem | null; category: string } | null>(null)
 
   const key = restaurantKey(restaurantId ?? '')

@@ -9,6 +9,7 @@ import { PageContainer } from '../components/PageContainer'
 import type { MessageKey } from '../i18n/en'
 import { useLanguage } from '../i18n/LanguageContext'
 import { isStrongPassword } from '../lib/password'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export function LoginPage() {
   const { t } = useLanguage()
@@ -16,6 +17,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const next = params.get('next')
+  usePageTitle(t('page.login'))
 
   const [email, setEmail] = useState(params.get('email') ?? '')
   const [password, setPassword] = useState('')
@@ -82,6 +84,7 @@ export function LoginPage() {
               <form onSubmit={onLogin} noValidate className="flex flex-col gap-1">
                 <h1 className="card-title mb-2 text-2xl">{t('page.login')}</h1>
                 {params.get('confirmed') && <p className="alert alert-success mb-2">{t('auth.login.confirmed')}</p>}
+                {params.get('reset') && <p className="alert alert-success mb-2">{t('auth.login.reset')}</p>}
                 <FormField label={t('auth.email')}>
                   <input
                     className="input w-full"
@@ -94,6 +97,12 @@ export function LoginPage() {
                 </FormField>
                 <FormField label={t('auth.password')}>
                   <PasswordInput value={password} onChange={setPassword} autoComplete="current-password" />
+                  <Link
+                    to={`/forgot-password${email ? `?email=${encodeURIComponent(email.trim())}` : ''}`}
+                    className="link link-hover mt-1 w-fit text-sm text-muted"
+                  >
+                    {t('auth.login.forgot')}
+                  </Link>
                 </FormField>
                 {error && (
                   <p className="alert alert-error mt-2" role="alert">

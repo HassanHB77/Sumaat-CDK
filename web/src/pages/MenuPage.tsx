@@ -14,6 +14,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { categoryLabel } from '../i18n/labels'
 import { useLanguage } from '../i18n/LanguageContext'
 import { pickName } from '../lib/format'
+import { usePageTitle } from '../lib/usePageTitle'
 import { availableDietTags, groupMenu } from '../lib/menu'
 
 // Stable empty lists: `?? []` would create a new array every render and defeat useMemo.
@@ -38,6 +39,7 @@ export function MenuPage() {
     queryFn: ({ signal }) => getCategories(signal),
     staleTime: 10 * 60_000, // changes rarely
   })
+  usePageTitle(restaurant.data ? pickName(restaurant.data, lang) : t('page.menu'))
 
   const items = restaurant.data?.menu ?? NO_ITEMS
   const order = categories.data?.categories ?? NO_CATEGORIES

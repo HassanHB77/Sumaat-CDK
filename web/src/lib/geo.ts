@@ -1,6 +1,6 @@
 /** Where the customer is looking for food. The map picker (M7) will reuse this. */
 
-export type Spot = { lat: number; lng: number; label: 'hofuf' | 'mubarraz' | 'me' }
+export type Spot = { lat: number; lng: number; label: 'hofuf' | 'mubarraz' | 'me' | 'map' }
 
 export const PRESETS: Record<'hofuf' | 'mubarraz', Spot> = {
   hofuf: { lat: 25.38, lng: 49.588, label: 'hofuf' },
@@ -28,7 +28,7 @@ export function parseSpot(raw: string | null): Spot {
   try {
     const s = JSON.parse(raw)
     if (typeof s?.lat === 'number' && typeof s?.lng === 'number' && isInAlAhsa(s.lat, s.lng)) {
-      const label = ['hofuf', 'mubarraz', 'me'].includes(s.label) ? s.label : 'me'
+      const label = ['hofuf', 'mubarraz', 'me', 'map'].includes(s.label) ? s.label : 'map'
       return { lat: s.lat, lng: s.lng, label }
     }
   } catch {
@@ -51,4 +51,35 @@ export function saveSpot(spot: Spot): void {
   } catch {
     /* private mode: just don't remember */
   }
+}
+
+// --- map helpers (customer map) ---------------------------------------------------------
+
+export type Point = { lat: number; lng: number }
+
+/** Great-circle distance in km (same formula as the API). */
+export function distanceKm(a: Point, b: Point): number {
+  const R = 6371.0088
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+/** Show "Search this area" only after a real move (not a tiny nudge). */
+export function movedEnough(from: Point, to: Point, minKm = 0.3): boolean {
+  return distanceKm(from, to) >= minKm
+}
+
+/** Closed ring of [lng, lat] points approximating a circle (for the faint radius circle on the map). */
+export function circleRing(center: Point, km: number, steps = 64): [number, number][] {
+  const latDeg = km / 111.32
+  const lngDeg = km / (111.32 * Math.cos((center.lat * Math.PI) / 180))
+  const ring: [number, number][] = []
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * 2 * Math.PI
+    ring.push([center.lng + lngDeg * Math.cos(a), center.lat + latDeg * Math.sin(a)])
+  }
+  return ring
 }

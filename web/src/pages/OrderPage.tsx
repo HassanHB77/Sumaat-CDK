@@ -11,6 +11,7 @@ import { useToast } from '../components/Toast'
 import { useLanguage } from '../i18n/LanguageContext'
 import { formatOrderLabel, formatTime, pickName } from '../lib/format'
 import { isFinal, rejectReason } from '../lib/orders'
+import { usePageTitle } from '../lib/usePageTitle'
 
 const LIVE_MS = 10_000 // refresh while the order is still moving
 
@@ -42,6 +43,7 @@ export function OrderPage() {
     },
     onSettled: () => setConfirmCancel(false),
   })
+  usePageTitle(order.data ? formatOrderLabel(order.data.orderNumber, order.data.businessDate, lang) : t('page.order'))
 
   if (order.isPending) {
     return (

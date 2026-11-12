@@ -9,6 +9,7 @@ import { ErrorState, LoadingState } from '../components/States'
 import { useToast } from '../components/Toast'
 import { useLanguage } from '../i18n/LanguageContext'
 import { DEFAULT_SPOT } from '../lib/geo'
+import { usePageTitle } from '../lib/usePageTitle'
 import { changedFields } from './forms'
 import { RestaurantForm } from './RestaurantForm'
 
@@ -43,6 +44,7 @@ export function OwnerSetupPage() {
   const { t } = useLanguage()
   const toast = useToast()
   const navigate = useNavigate()
+  usePageTitle(t('page.ownerSetup'))
 
   const create = useMutation({
     mutationFn: (values: RestaurantInput) => createRestaurant(values),
@@ -79,6 +81,7 @@ export function RestaurantSettingsPage() {
   const { t } = useLanguage()
   const toast = useToast()
   const queryClient = useQueryClient()
+  usePageTitle(t('page.ownerRestaurant'))
 
   const restaurant = useQuery({
     queryKey: restaurantKey(restaurantId ?? ''),
