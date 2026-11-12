@@ -22,9 +22,10 @@ export function UserMenu() {
         {t('auth.hello', { name: first })}
       </div>
       <ul tabIndex={0} className="menu dropdown-content z-40 mt-2 w-60 flex-nowrap rounded-box bg-base-100 p-2 text-base-content shadow">
-        {/* DaisyUI .menu wraps (rows grow to their content): flex-nowrap above + this row capped, span clips with "…". */}
-        <li className="menu-title min-w-0 max-w-full">
-          <span className="block truncate text-start" dir="ltr" title={user.email}>
+        {/* DaisyUI menus and their rows are WRAPPING flex boxes, which grow to fit their content. flex-nowrap on the
+            list + a plain block row keep the email inside the box; the span then clips it with "…". */}
+        <li className="menu-title block w-full">
+          <span className="block w-full truncate text-start" dir="ltr" title={user.email}>
             {user.email}
           </span>
         </li>
