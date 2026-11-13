@@ -70,3 +70,9 @@ from agent.text import MarkdownFilter  # noqa: E402
 def test_markdown_filter(chunks, expected):
     f = MarkdownFilter()
     assert "".join(f.feed(c) for c in chunks) + f.flush() == expected
+
+
+def test_markdown_bold_split_right_after_the_marks():
+    f = MarkdownFilter()
+    out = f.feed("- **") + f.feed("تيراميسو - 24 ريال\n- مهلبية**") + f.feed(" - 15") + f.flush()
+    assert out == "- تيراميسو - 24 ريال\n- مهلبية - 15"

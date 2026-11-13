@@ -28,7 +28,7 @@ class MarkdownFilter:
 
     def feed(self, chunk: str) -> str:
         text = self._buf + chunk
-        keep = 1 if text.endswith(("*", "_")) else 0  # may be the first half of ** / __
+        keep = len(text) - len(text.rstrip("*_"))  # all trailing marks: "**" may end one chunk, "**" start the next
         text, self._buf = text[: len(text) - keep], text[len(text) - keep :]
         return self._clean(text)
 
