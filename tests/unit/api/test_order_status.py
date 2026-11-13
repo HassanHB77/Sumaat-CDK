@@ -136,3 +136,22 @@ def test_staff_cannot_use_cancel(cashier, order):
 
 def test_unknown_order_is_404(cashier):
     assert cashier.post("/orders/nope/accept").status_code == 404
+
+
+def test_status_change_reply_reads_the_order_consistently(shop, customer, monkeypatch):
+    """The reply after accept/reject/... must show the change just made (a default read can be stale)."""
+    from api import aws
+
+    oid = customer.post("/orders", json=order_body(shop)).json()["id"]
+    table = aws.table()
+    real_get = table.get_item
+    calls = []
+
+    def spy(**kwargs):
+        calls.append(kwargs)
+        return real_get(**kwargs)
+
+    monkeypatch.setattr(table, "get_item", spy)
+    r = shop["owner"].post(f"/orders/{oid}/reject", json={"reason": "Closing early"})
+    assert r.status_code == 200 and r.json()["statusHistory"][-1]["reason"] == "Closing early"
+    assert calls[-1].get("ConsistentRead") is True

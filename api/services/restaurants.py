@@ -117,7 +117,7 @@ def create(owner: Principal, data: RestaurantCreate) -> dict:
     except ClientError as e:
         if e.response["Error"]["Code"] != "TransactionCanceledException":
             raise
-        if "Item" in table.get_item(Key=_owner_lock_key(owner.sub)):
+        if "Item" in table.get_item(Key=_owner_lock_key(owner.sub), ConsistentRead=True):  # just written
             raise Conflict("You already have a restaurant") from e
         raise
 

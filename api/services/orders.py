@@ -138,7 +138,8 @@ def place(customer: Principal, data: OrderCreate) -> dict:
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "TransactionCanceledException":
-            if lock := table.get_item(Key=lock_key).get("Item"):  # two taps at the same moment
+            # two taps at the same moment (strongly consistent: the other tap's lock was written just now)
+            if lock := table.get_item(Key=lock_key, ConsistentRead=True).get("Item"):
                 raise _open_conflict(lock) from e
         raise
     return order
@@ -263,6 +264,8 @@ def change_status(principal: Principal, order_id: str, action: str, reason: str 
     except ClientError as e:
         if e.response["Error"]["Code"] != "TransactionCanceledException":
             raise
-        current = table.get_item(Key=order_key(order_id))["Item"]["status"]
+        current = table.get_item(Key=order_key(order_id), ConsistentRead=True)["Item"]["status"]
         raise Conflict(f"Order is {current}, can't {action}") from e
-    return table.get_item(Key=order_key(order_id))["Item"]
+    # Strongly consistent: a default (eventually consistent) read right after the write can return the order as
+    # it was BEFORE this change (seen live: a reject reply without the new history entry).
+    return table.get_item(Key=order_key(order_id), ConsistentRead=True)["Item"]
