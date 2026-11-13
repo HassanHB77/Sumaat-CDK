@@ -286,3 +286,9 @@ def test_new_diet_tags_are_accepted(shop):
     add_dish(shop, name="Keto Bowl", nameAr="وعاء كيتو", category="Bowls", priceHalalas=3200, dietTags=["keto", "low_carb"])
     found = catalog.search_dishes(HERE, diet_tags=["keto"])["dishes"]
     assert "Keto Bowl" in [d["name"] for d in found]
+
+
+def test_empty_search_with_a_category_hints_to_retry_without_it(shop):
+    res = catalog.search_dishes(HERE, category="Mains", diet_tags=["contains_seafood"], max_price_sar=1)
+    assert res["count"] == 0 and "WITHOUT category" in res["hint"]
+    assert "hint" not in catalog.search_dishes(HERE, diet_tags=["contains_seafood"], max_price_sar=1)

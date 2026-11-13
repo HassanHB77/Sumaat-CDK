@@ -16,7 +16,7 @@ from scripts.seed_data import CATEGORIES, RESTAURANTS
 ROOT = Path(__file__).resolve().parents[2]
 ARABIC = re.compile(r"[؀-ۿ]")
 HOURS = re.compile(r"^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$")
-SPOTS = [(25.38, 49.588), (25.41, 49.58)]  # web/src/lib/geo.ts PRESETS: Al-Hofuf, Al-Mubarraz
+DEFAULT_SPOT = (25.38, 49.588)  # web/src/lib/geo.ts DEFAULT_SPOT (Al-Hofuf)
 DIET_TAGS = set(get_args(DietTag))
 CUISINES = set(get_args(Cuisine))
 ALL_ITEMS = [(r, i) for r in RESTAURANTS for i in r["items"]]
@@ -39,7 +39,7 @@ def test_restaurant_is_complete_and_nearby(r):
     assert r["description"] and not ARABIC.search(r["description"])
     assert 1 <= len(r["cuisines"]) <= 3 and set(r["cuisines"]) <= CUISINES
     assert HOURS.match(r["hours"])
-    assert min(distance_km(r["lat"], r["lng"], lat, lng) for lat, lng in SPOTS) <= 4  # shows up in "near me"
+    assert distance_km(r["lat"], r["lng"], *DEFAULT_SPOT) <= 4  # shows up in "near me" without moving the map
     assert 10 <= len(r["items"]) <= 14
 
 

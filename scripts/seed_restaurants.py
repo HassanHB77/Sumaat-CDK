@@ -1,7 +1,7 @@
 """Demo restaurants and menus: 15 FICTIONAL restaurants in Al-Ahsa (names are invented; districts are real areas).
 
-Every restaurant is within 4 km of the website's Al-Hofuf or Al-Mubarraz map spot (web/src/lib/geo.ts PRESETS),
-so all of them show up in "near me" and in the AI assistant. Slugs never change: ids are uuid5(slug), so re-running
+Every restaurant is within 4 km of the website's default Al-Hofuf map spot (web/src/lib/geo.ts DEFAULT_SPOT), so
+all of them show up in "near me" and in the AI assistant without moving the map. Slugs never change: ids are uuid5(slug), so re-running
 the seed updates the same rows (scripts/seed.py).
 
 Prices are in SAR here (VAT included) and stored as whole halalas. Calories are rough per-serving estimates.
@@ -147,8 +147,8 @@ RESTAURANTS = [
         "cuisines": ["sweets"],
         "city": "Al-Mubarraz",
         "district": "Al-Rashidiyah",
-        "lat": 25.4150,
-        "lng": 49.5760,
+        "lat": 25.4040,
+        "lng": 49.5780,
         "hours": "14:00-02:00",
         "owner": staff("owner.sweets@example.com", "Mariam Al-Saleh", "+966500000105"),
         "cashier": staff("cashier.sweets@example.com", "Lama Al-Otaibi", "+966500000205"),
@@ -350,7 +350,7 @@ RESTAURANTS = [
         "cuisines": ["lebanese"],
         "city": "Al-Mubarraz",
         "district": "Al-Mubarraz Center",
-        "lat": 25.4180,
+        "lat": 25.4070,
         "lng": 49.5880,
         "hours": "06:00-02:00",
         "owner": staff("owner.lebanese@example.com", "Ali Al-Ramadan", "+966500000112"),

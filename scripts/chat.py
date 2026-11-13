@@ -24,9 +24,10 @@ from pathlib import Path
 
 import boto3
 
-from scripts.get_token import get_access_token
-
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))  # so "python scripts/chat.py" can import the scripts package
+
+from scripts.get_token import get_access_token  # noqa: E402
 SPOTS = {"hofuf": (25.38, 49.588), "mubarraz": (25.41, 49.58)}
 LANGS = ("en", "ar")
 LABELS = {

@@ -207,13 +207,17 @@ def search_dishes(
             place["opensAt"] = summary["opensAt"]
         matches = sorted(_matching(r["menu"], category, tags, max_calories, max_price_sar), key=lambda i: int(i["priceHalalas"]))
         dishes += [{**_item(i), "restaurant": place} for i in matches]
-    return {
+    out = {
         "radiusKm": nearby["radiusKm"],
         "restaurantsSearched": nearby["count"],
         "count": len(dishes),
         "truncated": len(dishes) > MAX_SEARCH_DISHES,
         "dishes": dishes[:MAX_SEARCH_DISHES],
     }
+    if not dishes and category and category.strip():
+        # The model often turns "lunch"/"dinner" into a category (e.g. Mains) and then finds nothing.
+        out["hint"] = "Nothing in this category. Search again WITHOUT category before saying nothing was found."
+    return out
 
 
 def _wanted(items: list[dict]) -> tuple[dict[str, int], list[Any]]:
