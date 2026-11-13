@@ -16,3 +16,8 @@ export function dietLabel(tag: string, t: T): string {
   const key = `diet.${tag}`
   return isKey(key) ? t(key) : tag
 }
+
+export function cuisineLabel(cuisine: string, t: T): string {
+  const key = `cuisine.${cuisine}`
+  return isKey(key) ? t(key) : cuisine
+}

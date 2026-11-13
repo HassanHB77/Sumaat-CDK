@@ -15,7 +15,7 @@ from typing import Any, get_args
 
 from api import hours
 from api.errors import NotFound
-from api.models import MAX_RADIUS_KM, DietTag
+from api.models import MAX_RADIUS_KM, Cuisine, DietTag
 from api.services import categories, restaurants
 
 MIN_RADIUS_KM = 0.5
@@ -24,6 +24,7 @@ MAX_SEARCH_DISHES = 30
 MAX_QTY = 20  # same limits as the web cart (web/src/cart/cartLogic.ts) and the order API
 MAX_LINES = 20
 DIET_TAGS: tuple[str, ...] = get_args(DietTag)
+CUISINES: tuple[str, ...] = get_args(Cuisine)
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,9 @@ def _restaurant(r: dict) -> dict[str, Any]:
         "id": r["id"],
         "name": r["name"],
         "nameAr": r["nameAr"],
+        "cuisines": list(r.get("cuisines", [])),
+        "description": r.get("description", ""),
+        "descriptionAr": r.get("descriptionAr", ""),
         "district": r.get("district", ""),
         "city": r.get("city", ""),
         "hours": r["hours"],
@@ -71,13 +75,30 @@ def _item(i: dict) -> dict[str, Any]:
     }
 
 
-def find_restaurants(spot: Spot, radius_km: float = MAX_RADIUS_KM, open_now_only: bool = False) -> dict:
+def _check_cuisine(cuisine: str | None) -> tuple[str | None, dict | None]:
+    """Normalised cuisine, or an error listing the real ones (like _check_category)."""
+    if not cuisine or not cuisine.strip():
+        return None, None
+    c = cuisine.strip().lower()
+    if c in CUISINES:
+        return c, None
+    return None, {"error": "unknown_cuisine", "unknown": cuisine, "allowed": list(CUISINES)}
+
+
+def find_restaurants(
+    spot: Spot, radius_km: float = MAX_RADIUS_KM, open_now_only: bool = False, cuisine: str | None = None
+) -> dict:
     """Restaurants near the customer's spot, nearest first, each marked open / paused / closed."""
+    wanted, err = _check_cuisine(cuisine)
+    if err:
+        return err
     radius = min(max(float(radius_km), MIN_RADIUS_KM), MAX_RADIUS_KM)
     found = restaurants.near(spot.lat, spot.lng, radius)
     out = [{**_restaurant(r), "distanceKm": float(r["distanceKm"])} for r in found]
     if open_now_only:
         out = [r for r in out if r["status"] == "open"]
+    if wanted:
+        out = [r for r in out if wanted in r["cuisines"]]
     return {"radiusKm": radius, "count": len(out), "restaurants": out}
 
 
@@ -163,6 +184,7 @@ def search_dishes(
     max_price_sar: float | None = None,
     open_now_only: bool = False,
     radius_km: float = MAX_RADIUS_KM,
+    cuisine: str | None = None,
 ) -> dict:
     """Matching dishes from EVERY restaurant near the spot, in one call (nearest restaurant first, then cheapest).
 
@@ -172,7 +194,9 @@ def search_dishes(
     err = err or _check_category(category)
     if err:
         return err
-    nearby = find_restaurants(spot, radius_km, open_now_only)
+    nearby = find_restaurants(spot, radius_km, open_now_only, cuisine)
+    if "error" in nearby:
+        return nearby
     dishes: list[dict] = []
     for summary in nearby["restaurants"]:
         r = _load(summary["id"])

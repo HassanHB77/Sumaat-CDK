@@ -1,14 +1,26 @@
 /** Shapes returned by the Sumaat API (see api/models.py in the backend). Money is always integer halalas. */
 
-export type DietTag = 'vegetarian' | 'vegan' | 'gluten_free' | 'dairy_free' | 'high_protein' | 'spicy'
+// Fixed lists, same as api/models.py (tests/unit/test_seed_data_quality.py keeps them identical).
+export const DIET_TAGS = [
+  'vegetarian', 'vegan', 'gluten_free', 'dairy_free', 'high_protein', 'spicy',
+  'low_carb', 'keto', 'low_calorie', 'sugar_free', 'nut_free', 'contains_nuts', 'kids', 'contains_seafood',
+] as const
+export type DietTag = (typeof DIET_TAGS)[number]
 
-export const DIET_TAGS: DietTag[] = ['vegetarian', 'vegan', 'gluten_free', 'dairy_free', 'high_protein', 'spicy']
+export const CUISINES = [
+  'saudi', 'cafe', 'juices', 'sweets', 'burgers', 'pizza', 'bbq', 'healthy',
+  'italian', 'indian', 'lebanese', 'turkish', 'asian', 'seafood',
+] as const
+export type Cuisine = (typeof CUISINES)[number]
+export const MAX_CUISINES = 3
 
 export type Restaurant = {
   id: string
   name: string
   nameAr: string
   description: string
+  descriptionAr?: string // older rows may lack it
+  cuisines?: Cuisine[]
   city: string
   district: string
   lat: number

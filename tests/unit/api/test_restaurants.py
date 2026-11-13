@@ -3,6 +3,8 @@ import pytest
 from api.handler import app
 from scripts.seed import seed, stable_id
 from tests.unit.api.conftest import NEW, customer_claims, owner_claims
+from api.geo import distance_km
+from scripts.seed_data import RESTAURANTS
 
 NAKHLA = {"lat": 25.3797, "lng": 49.5867}
 NAKHLA_ID = stable_id("restaurant", "nakhla-kitchen")
@@ -33,13 +35,18 @@ def test_near_me_sorted_nearest_first(seeded, public):
     r = public.get("/restaurants", params={**NAKHLA, "radiusKm": 2})
     assert r.status_code == 200
     names = [x["name"] for x in r.json()]
-    assert names == ["Nakhla Kitchen", "Qaisariya Grill"]
-    assert r.json()[0]["distanceKm"] == 0
+    dists = [x["distanceKm"] for x in r.json()]
+    assert names[0] == "Nakhla Kitchen" and dists[0] == 0
+    assert dists == sorted(dists) and all(d <= 2 for d in dists)
+    assert "Qaisariya Grill" in names and "Mubarraz Dates & Coffee" not in names  # ~3.3 km away
 
 
 def test_near_me_reaches_into_neighbouring_cell(seeded, public):
     r = public.get("/restaurants", params={**NAKHLA, "radiusKm": 4})
-    assert [x["name"] for x in r.json()] == ["Nakhla Kitchen", "Qaisariya Grill", "Mubarraz Dates & Coffee"]
+    names = [x["name"] for x in r.json()]
+    assert names[0] == "Nakhla Kitchen" and "Mubarraz Dates & Coffee" in names  # another geohash cell
+    within = {x["name"] for x in RESTAURANTS if distance_km(NAKHLA["lat"], NAKHLA["lng"], x["lat"], x["lng"]) <= 4}
+    assert set(names) == within and len(within) >= 10
 
 
 def test_near_me_far_away_is_empty(seeded, public):
@@ -78,7 +85,8 @@ def test_get_seeded_restaurant_contract(seeded, public):
     body = r.json()
     assert body["name"] == "Nakhla Kitchen"
     assert body["lat"] == 25.3797
-    assert len(body["menu"]) == 6
+    assert len(body["menu"]) == len(next(r for r in RESTAURANTS if r["slug"] == "nakhla-kitchen")["items"])
+    assert body["cuisines"] == ["saudi"] and body["descriptionAr"]
     assert all(isinstance(i["priceHalalas"], int) for i in body["menu"])
     assert [i["category"] for i in body["menu"]] == sorted(i["category"] for i in body["menu"])
     assert "ownerSub" not in body and "seq" not in body
@@ -152,6 +160,9 @@ def test_cashier_cannot_create(ddb, make_client):
         {**NEW, "name": ""},
         {**NEW, "lat": 91},
         {k: v for k, v in NEW.items() if k != "city"},
+        {**NEW, "cuisines": ["mexican"]},
+        {**NEW, "cuisines": ["pizza", "italian", "burgers", "bbq"]},  # max 3
+        {**NEW, "descriptionAr": "x" * 501},
     ],
 )
 def test_create_validation(ddb, owner, body):
@@ -210,3 +221,21 @@ def test_moving_restaurant_updates_geo_index(ddb, created, owner, public):
 def test_patch_no_longer_accepts_is_open(created, owner):
     # Open/closed is now automatic (hours) + pause/resume; the old flag is rejected.
     assert owner.patch(f"/restaurants/{created['id']}", json={"isOpen": False}).status_code == 422
+
+
+def test_cuisines_and_arabic_description_saved_and_returned(ddb, owner):
+    body = {**NEW, "cuisines": ["burgers", "burgers", "healthy"], "descriptionAr": "  برجر سماش.  "}
+    r = owner.post("/restaurants", json=body)
+    assert r.status_code == 201
+    assert r.json()["cuisines"] == ["burgers", "healthy"] and r.json()["descriptionAr"] == "برجر سماش."
+    rid = r.json()["id"]
+    r = owner.patch(f"/restaurants/{rid}", json={"cuisines": ["pizza"], "descriptionAr": "بيتزا."})
+    assert r.status_code == 200 and r.json()["cuisines"] == ["pizza"] and r.json()["descriptionAr"] == "بيتزا."
+
+
+def test_old_rows_without_cuisines_read_as_empty(ddb, owner):
+    rid = owner.post("/restaurants", json=NEW).json()["id"]
+    table = ddb[0]
+    table.update_item(Key={"PK": f"RESTAURANT#{rid}", "SK": "PROFILE"}, UpdateExpression="REMOVE cuisines, descriptionAr")
+    got = owner.get(f"/restaurants/{rid}").json()
+    assert got["cuisines"] == [] and got["descriptionAr"] == ""

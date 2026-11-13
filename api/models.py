@@ -10,7 +10,15 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validat
 
 from api.validation import check_person_name, check_saudi_mobile
 
-DietTag = Literal["vegetarian", "vegan", "gluten_free", "dairy_free", "high_protein", "spicy"]
+# Fixed lists, mirrored in web/src/api/types.ts (a test keeps them identical). Labels live in the web i18n files.
+DietTag = Literal[
+    "vegetarian", "vegan", "gluten_free", "dairy_free", "high_protein", "spicy",
+    "low_carb", "keto", "low_calorie", "sugar_free", "nut_free", "contains_nuts", "kids", "contains_seafood",
+]
+Cuisine = Literal[
+    "saudi", "cafe", "juices", "sweets", "burgers", "pizza", "bbq", "healthy",
+    "italian", "indian", "lebanese", "turkish", "asian", "seafood",
+]
 
 Name = Annotated[str, Field(min_length=1, max_length=80)]
 Lat = Annotated[float, Field(ge=-90, le=90)]
@@ -21,7 +29,12 @@ Category = Annotated[str, Field(min_length=1, max_length=40)]
 # strict=True: JSON 1500 is accepted, but 15.5 and "1500" are rejected (money is never a float or a string).
 Halalas = Annotated[int, Field(strict=True, ge=1, le=1_000_000)]
 Calories = Annotated[int, Field(strict=True, ge=0, le=10_000)]
-DietTags = Annotated[list[DietTag], Field(max_length=6), AfterValidator(lambda tags: list(dict.fromkeys(tags)))]
+DietTags = Annotated[list[DietTag], Field(max_length=14), AfterValidator(lambda tags: list(dict.fromkeys(tags)))]
+MAX_CUISINES = 3
+Cuisines = Annotated[
+    list[Cuisine], Field(max_length=MAX_CUISINES), AfterValidator(lambda cs: list(dict.fromkeys(cs)))
+]
+Description = Annotated[str, Field(max_length=500)]
 
 # Same rules as the Cognito pool (infra/auth_stack.py), checked here first for a clear 422.
 Password = Annotated[str, Field(min_length=8, max_length=128)]
@@ -77,7 +90,9 @@ class _In(BaseModel):
 class RestaurantCreate(_In):
     name: Name
     nameAr: Name
-    description: Annotated[str, Field(max_length=500)] = ""
+    description: Description = ""
+    descriptionAr: Description = ""
+    cuisines: Cuisines = []
     city: Name
     district: Name
     lat: Lat
@@ -88,7 +103,9 @@ class RestaurantCreate(_In):
 class RestaurantUpdate(_In):
     name: Name | None = None
     nameAr: Name | None = None
-    description: Annotated[str, Field(max_length=500)] | None = None
+    description: Description | None = None
+    descriptionAr: Description | None = None
+    cuisines: Cuisines | None = None
     city: Name | None = None
     district: Name | None = None
     lat: Lat | None = None
@@ -142,6 +159,8 @@ class RestaurantOut(BaseModel):
     name: str
     nameAr: str
     description: str = ""
+    descriptionAr: str = ""  # older rows have none
+    cuisines: list[str] = []
     city: str
     district: str
     lat: float

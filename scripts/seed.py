@@ -53,6 +53,8 @@ def restaurant_item(r: dict, owner_sub: str | None, ts: str) -> dict:
         "name": r["name"],
         "nameAr": r["nameAr"],
         "description": r["description"],
+        "descriptionAr": r["descriptionAr"],
+        "cuisines": r["cuisines"],
         "city": r["city"],
         "district": r["district"],
         "lat": Decimal(str(r["lat"])),

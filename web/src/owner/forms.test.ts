@@ -48,6 +48,8 @@ describe('validation', () => {
     name: 'Test Bakery',
     nameAr: 'مخبز تجريبي',
     description: '',
+    descriptionAr: '',
+    cuisines: ['saudi' as const],
     city: 'Al-Hofuf',
     district: 'Al-Kut',
     lat: 25.38,
@@ -59,6 +61,13 @@ describe('validation', () => {
     expect(validateRestaurant(good)).toEqual({})
     const e = validateRestaurant({ ...good, name: ' ', description: 'x'.repeat(501), lat: 24.7, hours: '' })
     expect(Object.keys(e).sort()).toEqual(['description', 'hours', 'lat', 'name'])
+  })
+
+  it('restaurant cuisines (1 to 3) and Arabic description', () => {
+    expect(validateRestaurant({ ...good, cuisines: [] }).cuisines).toBe('owner.err.cuisines')
+    expect(validateRestaurant({ ...good, cuisines: ['pizza', 'italian', 'burgers', 'bbq'] }).cuisines).toBe('owner.err.cuisines')
+    expect(validateRestaurant({ ...good, cuisines: ['pizza', 'italian', 'burgers'] })).toEqual({})
+    expect(validateRestaurant({ ...good, descriptionAr: 'x'.repeat(501) }).descriptionAr).toBe('owner.err.tooLong')
   })
 
   it('menu item', () => {

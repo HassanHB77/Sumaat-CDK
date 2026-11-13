@@ -1,13 +1,15 @@
 import { Link } from 'react-router'
 import type { NearbyRestaurant } from '../api/types'
 import { useLanguage } from '../i18n/LanguageContext'
-import { formatKm, pickName } from '../lib/format'
+import { formatKm, pickDescription, pickName } from '../lib/format'
+import { CuisineBadges } from './CuisineParts'
 import { HoursText, OpenStatusBadge } from './OpenStatusBadge'
 import { RestaurantIcon } from './RestaurantIcon'
 
 export function RestaurantCard({ restaurant: r }: { restaurant: NearbyRestaurant }) {
   const { lang } = useLanguage()
   const closed = !r.openNow
+  const description = pickDescription(r, lang)
   return (
     <Link
       to={`/r/${r.id}`}
@@ -24,7 +26,8 @@ export function RestaurantCard({ restaurant: r }: { restaurant: NearbyRestaurant
         <p className="text-sm text-muted">
           {r.district} · {r.city} · <span dir="ltr">{formatKm(r.distanceKm, lang)}</span>
         </p>
-        {r.description && <p className="line-clamp-1 text-sm">{r.description}</p>}
+        <CuisineBadges cuisines={r.cuisines} />
+        {description && <p className="line-clamp-1 text-sm">{description}</p>}
         <p className="text-sm text-muted">
           <HoursText hours={r.hours} />
         </p>

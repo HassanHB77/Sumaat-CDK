@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { Cashier, Categories, MenuItem, NearbyRestaurant, Order, PlaceOrderBody, Restaurant, RestaurantDetail } from './types'
+import type { Cashier, Categories, Cuisine, MenuItem, NearbyRestaurant, Order, PlaceOrderBody, Restaurant, RestaurantDetail } from './types'
 
 // --- public (no login) ---
 
@@ -63,6 +63,8 @@ export type RestaurantInput = {
   name: string
   nameAr: string
   description: string
+  descriptionAr: string
+  cuisines: Cuisine[]
   city: string
   district: string
   lat: number

@@ -69,7 +69,7 @@ def test_find_nothing_far_away(shop):
 
 def test_find_hides_internal_fields_and_is_json(shop):
     r = mine(catalog.find_restaurants(HERE), shop)
-    assert set(r) == {"id", "name", "nameAr", "district", "city", "hours", "status", "distanceKm"}
+    assert set(r) == {"id", "name", "nameAr", "cuisines", "description", "descriptionAr", "district", "city", "hours", "status", "distanceKm"}
     json.dumps(catalog.find_restaurants(HERE))  # no Decimals
 
 
@@ -121,8 +121,8 @@ def test_menu_filters(shop):
 
 
 def test_menu_unknown_diet_tag(shop):
-    res = catalog.get_menu(shop["rid"], diet_tags=["keto"])
-    assert res["error"] == "unknown_diet_tags" and res["unknown"] == ["keto"] and "vegan" in res["allowed"]
+    res = catalog.get_menu(shop["rid"], diet_tags=["paleo"])
+    assert res["error"] == "unknown_diet_tags" and res["unknown"] == ["paleo"] and "vegan" in res["allowed"]
 
 
 def test_menu_is_capped(shop, monkeypatch):
@@ -237,7 +237,7 @@ def test_search_dishes_filters_and_hidden(shop):
     shop["owner"].patch(f"/restaurants/{shop['rid']}/menu/{shop['fries']}", json={"isAvailable": False})
     ids = [d["id"] for d in catalog.search_dishes(HERE, category="Sides")["dishes"]]
     assert shop["fries"] not in ids
-    assert catalog.search_dishes(HERE, diet_tags=["keto"])["error"] == "unknown_diet_tags"
+    assert catalog.search_dishes(HERE, diet_tags=["paleo"])["error"] == "unknown_diet_tags"
     veg = catalog.search_dishes(HERE, diet_tags=["vegetarian"])["dishes"]
     assert veg and all("vegetarian" in d["dietTags"] for d in veg)
 
@@ -260,3 +260,29 @@ def test_unknown_category_lists_the_real_ones(shop, call):
 
 def test_category_match_ignores_case(shop):
     assert "error" not in catalog.search_dishes(HERE, category="sweets")
+
+
+# --- cuisines ------------------------------------------------------------------
+
+
+def test_cuisine_filter_on_restaurants_and_dishes(shop):
+    shop["owner"].patch(f"/restaurants/{shop['rid']}", json={"cuisines": ["burgers"], "descriptionAr": "برجر سماش."})
+    burgers = catalog.find_restaurants(HERE, cuisine=" Burgers ")
+    assert shop["rid"] in [r["id"] for r in burgers["restaurants"]]
+    assert all("burgers" in r["cuisines"] for r in burgers["restaurants"])
+    assert mine(burgers, shop)["descriptionAr"] == "برجر سماش."
+    assert shop["rid"] not in [r["id"] for r in catalog.find_restaurants(HERE, cuisine="indian")["restaurants"]]
+    dishes = catalog.search_dishes(HERE, cuisine="burgers")["dishes"]
+    assert {shop["fries"], shop["burger"]} <= {d["id"] for d in dishes}
+
+
+@pytest.mark.parametrize("call", ["find", "search"])
+def test_unknown_cuisine_lists_the_real_ones(shop, call):
+    res = catalog.find_restaurants(HERE, cuisine="mexican") if call == "find" else catalog.search_dishes(HERE, cuisine="mexican")
+    assert res["error"] == "unknown_cuisine" and "pizza" in res["allowed"]
+
+
+def test_new_diet_tags_are_accepted(shop):
+    add_dish(shop, name="Keto Bowl", nameAr="وعاء كيتو", category="Bowls", priceHalalas=3200, dietTags=["keto", "low_carb"])
+    found = catalog.search_dishes(HERE, diet_tags=["keto"])["dishes"]
+    assert "Keto Bowl" in [d["name"] for d in found]

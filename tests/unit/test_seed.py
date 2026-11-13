@@ -32,11 +32,12 @@ def test_seed_writes_everything(env):
     table, cognito, pool_id = env
     summary = seed(table, cognito, pool_id, PASSWORD)
     n_items = sum(len(r["items"]) for r in RESTAURANTS)
-    assert summary["restaurants"] == 3
+    n = len(RESTAURANTS)
+    assert summary["restaurants"] == n == 15
     assert summary["items"] == n_items
     # profiles + items + owner locks + cashier records + CONFIG/CATEGORIES (order counters come from the API)
-    assert table.scan(Select="COUNT")["Count"] == 3 + n_items + 3 + 3 + 1
-    assert len(summary["cashiers"]) == 3 and summary["customers"] == ["sara@example.com", "omar@example.com"]
+    assert table.scan(Select="COUNT", ConsistentRead=True)["Count"] == n + n_items + n + n + 1
+    assert len(summary["cashiers"]) == n and summary["customers"] == ["sara@example.com", "omar@example.com"]
 
 
 def test_restaurant_page_is_one_query(env):
@@ -89,7 +90,10 @@ def test_rerun_is_idempotent_and_keeps_daily_counters(env):
     seed(table, cognito, pool_id, PASSWORD)
     assert table.scan(Select="COUNT")["Count"] == before
     assert table.get_item(Key=key)["Item"]["seq"] == 5  # the seed never touches order numbers
-    assert len(cognito.list_users(UserPoolId=pool_id)["Users"]) == 3 + 3 + 2  # owners, cashiers, customers
+    users = []
+    for page in cognito.get_paginator("list_users").paginate(UserPoolId=pool_id):
+        users += page["Users"]
+    assert len(users) == 2 * len(RESTAURANTS) + 2  # owners, cashiers, customers
 
 
 def test_categories_cover_seed_data_and_survive_rerun(env):
@@ -145,4 +149,4 @@ def test_rerun_keeps_one_record_per_cashier(env):
     seed(table, cognito, pool_id, PASSWORD)
     seed(table, cognito, pool_id, PASSWORD)
     cashiers = [i for i in table.scan()["Items"] if i["SK"].startswith("CASHIER#")]
-    assert len(cashiers) == 3  # same sub -> same record, no duplicates
+    assert len(cashiers) == len(RESTAURANTS)  # same sub -> same record, no duplicates

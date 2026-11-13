@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import type { RestaurantInput } from '../api/endpoints'
+import { CUISINES, MAX_CUISINES, type Cuisine } from '../api/types'
 import { FormField } from '../components/FormParts'
 import { MapPicker } from '../components/MapPicker'
+import { cuisineLabel } from '../i18n/labels'
 import { useLanguage } from '../i18n/LanguageContext'
 import { composeHours, splitHours, validateRestaurant, type Errors, type RestaurantValues } from './forms'
 
@@ -32,6 +34,8 @@ export function RestaurantForm({
   const [name, setName] = useState(initial.name)
   const [nameAr, setNameAr] = useState(initial.nameAr)
   const [description, setDescription] = useState(initial.description)
+  const [descriptionAr, setDescriptionAr] = useState(initial.descriptionAr)
+  const [cuisines, setCuisines] = useState<Cuisine[]>(initial.cuisines)
   const [cityChoice, setCityChoice] = useState(knownCity ? initial.city : initial.city ? 'other' : 'Al-Hofuf')
   const [otherCity, setOtherCity] = useState(knownCity ? '' : initial.city)
   const [district, setDistrict] = useState(initial.district)
@@ -45,6 +49,8 @@ export function RestaurantForm({
     name: name.trim(),
     nameAr: nameAr.trim(),
     description: description.trim(),
+    descriptionAr: descriptionAr.trim(),
+    cuisines: CUISINES.filter((c) => cuisines.includes(c)), // stable order
     city: cityChoice === 'other' ? otherCity.trim() : cityChoice,
     district: district.trim(),
     lat: point.lat,
@@ -73,9 +79,34 @@ export function RestaurantForm({
         </FormField>
       </div>
 
-      <FormField label={t('owner.form.description')} error={err('description')}>
-        <textarea className="textarea w-full" rows={2} maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
+      <FormField label={t('owner.form.cuisines')} error={err('cuisines')} hint={t('owner.form.cuisinesHint', { max: MAX_CUISINES })}>
+        <div className="flex flex-wrap gap-2">
+          {CUISINES.map((c) => {
+            const on = cuisines.includes(c)
+            return (
+              <label key={c} className="label cursor-pointer gap-1 rounded-full border border-base-300 px-3 py-1">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-xs"
+                  checked={on}
+                  disabled={!on && cuisines.length >= MAX_CUISINES}
+                  onChange={() => setCuisines(on ? cuisines.filter((x) => x !== c) : [...cuisines, c])}
+                />
+                {cuisineLabel(c, t)}
+              </label>
+            )
+          })}
+        </div>
       </FormField>
+
+      <div className="grid gap-x-4 sm:grid-cols-2">
+        <FormField label={t('owner.form.description')} error={err('description')}>
+          <textarea className="textarea w-full" dir="ltr" rows={2} maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
+        </FormField>
+        <FormField label={t('owner.form.descriptionAr')} error={err('descriptionAr')}>
+          <textarea className="textarea w-full" dir="rtl" lang="ar" rows={2} maxLength={500} value={descriptionAr} onChange={(e) => setDescriptionAr(e.target.value)} />
+        </FormField>
+      </div>
 
       <FormField label={t('owner.form.hours')} error={err('hours')}>
         <label className="label mb-1 cursor-pointer gap-2">

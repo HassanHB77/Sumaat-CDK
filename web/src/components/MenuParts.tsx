@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { DietTag, MenuItem, RestaurantDetail } from '../api/types'
 import { categoryLabel, dietLabel } from '../i18n/labels'
 import { useLanguage } from '../i18n/LanguageContext'
-import { formatCalories, formatMoney, pickName } from '../lib/format'
+import { formatCalories, formatMoney, pickDescription, pickName } from '../lib/format'
+import { CuisineBadges } from './CuisineParts'
 import type { MenuSection } from '../lib/menu'
 import { HoursText, OpenStatusBadge } from './OpenStatusBadge'
 import { RestaurantIcon } from './RestaurantIcon'
@@ -24,7 +25,8 @@ export function MenuHeader({ restaurant: r }: { restaurant: RestaurantDetail }) 
         <p className="text-sm text-muted">
           {r.district} · {r.city} · <HoursText hours={r.hours} />
         </p>
-        {r.description && <p className="text-sm">{r.description}</p>}
+        <CuisineBadges cuisines={r.cuisines} />
+        {pickDescription(r, lang) && <p className="text-sm">{pickDescription(r, lang)}</p>}
       </div>
     </section>
   )

@@ -1,4 +1,5 @@
 /** Owner forms: pure helpers (hours, SAR prices, changed fields, validation). */
+import { MAX_CUISINES, type Cuisine } from '../api/types'
 import type { MessageKey } from '../i18n/en'
 import { isInAlAhsa } from '../lib/geo'
 
@@ -54,6 +55,8 @@ export type RestaurantValues = {
   name: string
   nameAr: string
   description: string
+  descriptionAr: string
+  cuisines: Cuisine[]
   city: string
   district: string
   lat: number
@@ -68,6 +71,8 @@ export function validateRestaurant(v: RestaurantValues): Errors<keyof Restaurant
   if (!v.name.trim()) e.name = 'auth.err.required'
   if (!v.nameAr.trim()) e.nameAr = 'auth.err.required'
   if (v.description.length > 500) e.description = 'owner.err.tooLong'
+  if (v.descriptionAr.length > 500) e.descriptionAr = 'owner.err.tooLong'
+  if (v.cuisines.length < 1 || v.cuisines.length > MAX_CUISINES) e.cuisines = 'owner.err.cuisines'
   if (!v.city.trim()) e.city = 'auth.err.required'
   if (!v.district.trim()) e.district = 'auth.err.required'
   if (!v.hours) e.hours = 'owner.err.hours'

@@ -169,7 +169,7 @@ else
   skip "POST menu item: Lamb Mandi already exists (not duplicated); route tested on its first run"
 fi
 check "POST menu item price 15.5 -> 422" 422 POST "/restaurants/$RID/menu" "$OWNER" '{"name":"x","nameAr":"x","category":"Mains","priceHalalas":15.5}'
-check "POST menu item unknown category -> 422" 422 POST "/restaurants/$RID/menu" "$OWNER" '{"name":"x","nameAr":"x","category":"Pizza","priceHalalas":1500}'
+check "POST menu item unknown category -> 422" 422 POST "/restaurants/$RID/menu" "$OWNER" '{"name":"x","nameAr":"x","category":"Tacos","priceHalalas":1500}'
 check "POST menu item extra field -> 422" 422 POST "/restaurants/$RID/menu" "$OWNER" '{"name":"x","nameAr":"x","category":"Mains","priceHalalas":1500,"restaurantId":"x"}'
 check "POST menu item as other owner -> 403" 403 POST "/restaurants/$RID/menu" "$OTHER_OWNER" "$DISH"
 check "POST menu item as cashier -> 403" 403 POST "/restaurants/$RID/menu" "$CASHIER" "$DISH"
@@ -339,7 +339,7 @@ else
   expect "  ... has text" "$(events | jq -r 'select(.type == "text") | .type' | head -1)" text
   expect "  ... not blocked, no error" "$(events | jq -r 'select(.type == "blocked" or .type == "error") | "\(.type) \(.code // "")"' | head -1)" ""
   expect "  ... ends with done" "$(events | tail -1 | jq -r '.type')" done
-  printf '      reply in %s s: %s\n' "$SECS" "$(events | jq -rj 'select(.type == "text") | .delta' | tr '\n' ' ' | head -c 100)"
+  printf '      reply in %.1f s: %s\n' "$SECS" "$(events | jq -rj 'select(.type == "text") | .delta' | tr '\n' ' ' | head -c 100)"
 fi
 
 # --- end state --------------------------------------------------------------------

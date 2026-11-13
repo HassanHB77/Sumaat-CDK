@@ -3,6 +3,7 @@ import pytest
 from api.handler import app
 from scripts.seed import seed
 from tests.unit.api.conftest import NEW, customer_claims, owner_claims
+from scripts.seed_data import CATEGORIES
 
 ITEM = {
     "name": "Camel Burger",
@@ -39,9 +40,8 @@ def _menu(public, rid):
 def test_categories_public_in_meal_order(setup, public):
     r = public.get("/categories")
     assert r.status_code == 200
-    assert r.json()["categories"] == [
-        "Breakfast", "Mains", "Grills", "Sandwiches", "Mezze", "Sides", "Sweets", "Dates", "Drinks",
-    ]
+    assert r.json()["categories"] == CATEGORIES  # the seed's meal order
+    assert r.json()["categories"][:3] == ["Breakfast", "Mains", "Grills"]
 
 
 def test_category_added_by_cli_is_listed_last(setup, public):
@@ -88,7 +88,7 @@ def test_duplicate_diet_tags_are_collapsed(setup):
         {"priceHalalas": "1500"},
         {"priceHalalas": 0},
         {"calories": -1},
-        {"dietTags": ["keto"]},
+        {"dietTags": ["paleo"]},
         {"restaurantId": "someone-else"},
         {"name": ""},
     ],
@@ -100,9 +100,9 @@ def test_create_validation(setup, change):
 
 def test_unknown_category_is_422_with_allowed_list(setup):
     _, owner, rid = setup
-    r = owner.post(f"/restaurants/{rid}/menu", json={**ITEM, "category": "Pizza"})
+    r = owner.post(f"/restaurants/{rid}/menu", json={**ITEM, "category": "Tacos"})
     assert r.status_code == 422
-    assert "Unknown category 'Pizza'" in r.json()["detail"]
+    assert "Unknown category 'Tacos'" in r.json()["detail"]
     assert "Mains" in r.json()["detail"]
 
 
@@ -178,7 +178,7 @@ def test_clear_diet_tags(setup, item):
 
 def test_patch_unknown_category_is_422(setup, item):
     _, owner, rid = setup
-    assert owner.patch(f"/restaurants/{rid}/menu/{item['id']}", json={"category": "Pizza"}).status_code == 422
+    assert owner.patch(f"/restaurants/{rid}/menu/{item['id']}", json={"category": "Tacos"}).status_code == 422
 
 
 def test_patch_unknown_item_is_404_and_creates_nothing(setup):

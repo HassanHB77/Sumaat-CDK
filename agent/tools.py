@@ -16,18 +16,21 @@ if TYPE_CHECKING:
 
 def build_tools(session: "ChatSession") -> list:
     @tool
-    def find_restaurants(radius_km: float = 4.0, open_now_only: bool = False) -> dict:
+    def find_restaurants(radius_km: float = 4.0, open_now_only: bool = False, cuisine: str | None = None) -> dict:
         """Find restaurants near the spot the customer picked on the map, nearest first.
 
-        Each restaurant has a status: "open", "paused" (not taking orders now) or "closed" (with opensAt).
+        Each restaurant has a status: "open", "paused" (not taking orders now) or "closed" (with opensAt),
+        its cuisines and a short description.
 
         Args:
             radius_km: Search radius in km, 0.5 to 4. Default 4.
             open_now_only: True to list only restaurants taking orders right now.
+            cuisine: Optional cuisine: saudi, cafe, juices, sweets, burgers, pizza, bbq, healthy, italian,
+                indian, lebanese, turkish, asian, seafood.
         """
         if session.spot is None:
             return {"error": "no_location"}
-        return catalog.find_restaurants(session.spot, radius_km, open_now_only)
+        return catalog.find_restaurants(session.spot, radius_km, open_now_only, cuisine)
 
     @tool
     def search_dishes(
@@ -36,6 +39,7 @@ def build_tools(session: "ChatSession") -> list:
         max_calories: int | None = None,
         max_price_sar: float | None = None,
         open_now_only: bool = False,
+        cuisine: str | None = None,
     ) -> dict:
         """Search dishes across ALL restaurants near the customer's map spot in one call. Prefer this for any
         dish request ("something vegetarian under 20 SAR", "desserts", "spicy food near me").
@@ -44,16 +48,20 @@ def build_tools(session: "ChatSession") -> list:
         Results: nearest restaurant first, cheapest dish first. All given filters must match.
 
         Args:
-            category: Optional menu category, e.g. "Desserts" (see list_categories).
+            category: Optional menu category, e.g. "Sweets" (see list_categories).
             diet_tags: Optional tags the dish must have: vegetarian, vegan, gluten_free, dairy_free,
-                high_protein, spicy.
+                high_protein, spicy, low_carb, keto, low_calorie, sugar_free, nut_free, contains_nuts, kids
+                (kids' meals), contains_seafood.
             max_calories: Optional calorie limit (dishes with unknown calories are left out).
             max_price_sar: Optional maximum price in SAR.
             open_now_only: True to include only restaurants taking orders right now.
+            cuisine: Optional restaurant cuisine (same values as find_restaurants), e.g. "indian".
         """
         if session.spot is None:
             return {"error": "no_location"}
-        return catalog.search_dishes(session.spot, category, diet_tags, max_calories, max_price_sar, open_now_only)
+        return catalog.search_dishes(
+            session.spot, category, diet_tags, max_calories, max_price_sar, open_now_only, cuisine=cuisine
+        )
 
     @tool
     def get_menu(
@@ -70,7 +78,8 @@ def build_tools(session: "ChatSession") -> list:
             restaurant_id: The restaurant id from find_restaurants.
             category: Optional menu category, e.g. "Mains" (see list_categories).
             diet_tags: Optional tags the dish must have: vegetarian, vegan, gluten_free, dairy_free,
-                high_protein, spicy.
+                high_protein, spicy, low_carb, keto, low_calorie, sugar_free, nut_free, contains_nuts, kids
+                (kids' meals), contains_seafood.
             max_calories: Optional calorie limit (dishes with unknown calories are left out).
             max_price_sar: Optional maximum price in SAR.
         """

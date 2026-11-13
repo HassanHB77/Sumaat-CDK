@@ -36,6 +36,13 @@ export function pickName(obj: { name?: string; nameAr?: string }, lang: Lang): s
   return (lang === 'ar' ? ar || en : en || ar) ?? ''
 }
 
+/** The restaurant description in the site language, falling back to the other one (older rows are English only). */
+export function pickDescription(obj: { description?: string; descriptionAr?: string }, lang: Lang): string {
+  const ar = obj.descriptionAr?.trim()
+  const en = obj.description?.trim()
+  return (lang === 'ar' ? ar || en : en || ar) ?? ''
+}
+
 const LOCALE: Record<Lang, string> = {
   en: 'en-GB',
   ar: 'ar-SA-u-ca-gregory-nu-latn', // Gregorian calendar + Western digits in Arabic

@@ -36,7 +36,7 @@ export function sortRestaurants(list: NearbyRestaurant[]): NearbyRestaurant[] {
 }
 
 /** Diet tags that actually appear on visible items (so the filter only offers useful chips). */
-export function availableDietTags(items: MenuItem[], allTags: DietTag[]): DietTag[] {
+export function availableDietTags(items: MenuItem[], allTags: readonly DietTag[]): DietTag[] {
   const present = new Set(items.filter((i) => i.isAvailable).flatMap((i) => i.dietTags ?? []))
   return allTags.filter((t) => present.has(t))
 }
