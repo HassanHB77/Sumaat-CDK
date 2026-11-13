@@ -26,3 +26,7 @@ class Conflict(ApiError):
 
 class Invalid(ApiError):
     status_code = 422
+
+
+class TooMany(ApiError):
+    status_code = 429

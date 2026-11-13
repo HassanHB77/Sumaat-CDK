@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from api.hours import RIYADH, business_date, day_bounds_utc, is_within_hours, open_now
+from api.hours import RIYADH, business_date, day_bounds_utc, is_within_hours, open_now, opens_at
 
 
 def at(hh: int, mm: int = 0) -> datetime:
@@ -60,3 +60,8 @@ def test_business_date_rolls_over_at_4am(hh, mm, expected):
 def test_day_bounds_are_4am_to_4am_riyadh_in_utc():
     # 04:00 Riyadh = 01:00 UTC
     assert day_bounds_utc(date(2026, 11, 12)) == ("2026-11-12T01:00:00Z", "2026-11-13T01:00:00Z")
+
+
+@pytest.mark.parametrize("hours, expected", [("12:00-23:30", "12:00"), ("13:00-01:00", "13:00"), ("00:00-00:00", "00:00")])
+def test_opens_at(hours, expected):
+    assert opens_at(hours) == expected

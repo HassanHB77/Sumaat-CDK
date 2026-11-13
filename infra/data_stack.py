@@ -39,6 +39,9 @@ class DataStack(Stack):
                 point_in_time_recovery_enabled=True
             ),
             stream=dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+            # Rows with an `expiresAt` (epoch seconds) are deleted by DynamoDB after that time, free of charge.
+            # Used by the AI chat daily counters (api/services/chat_quota.py); other rows don't set it.
+            time_to_live_attribute="expiresAt",
             # POC: tear down cleanly with `cdk destroy`. PITR still covers accidents.
             removal_policy=RemovalPolicy.DESTROY,
         )

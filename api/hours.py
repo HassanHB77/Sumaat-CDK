@@ -34,6 +34,11 @@ def is_within_hours(hours: str, now: datetime | None = None) -> bool:
     return cur >= start or cur < end  # past midnight
 
 
+def opens_at(hours: str) -> str:
+    """The opening time "HH:MM" of "HH:MM-HH:MM" (what to tell a customer when the restaurant is closed)."""
+    return hours.split("-")[0]
+
+
 def open_now(restaurant: dict, now: datetime | None = None) -> bool:
     """Taking orders right now = not paused AND inside opening hours."""
     return not restaurant.get("isPaused", False) and is_within_hours(restaurant["hours"], now)
