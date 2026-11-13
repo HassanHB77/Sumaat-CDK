@@ -25,7 +25,9 @@ type Props = {
   onDraftAdded: (index: number) => void
 }
 
-/** Bottom sheet on phones, side panel on larger screens (native <dialog>: Esc and the backdrop close it). */
+/** Bottom sheet on phones, side panel on larger screens (native <dialog>: Esc and the backdrop close it).
+ *  `sm:[translate:0]`: DaisyUI's RTL rule for modal-end (translate -100%) outranks its "open" rule, so in Arabic
+ *  the panel stayed off-screen and only the dimmed backdrop showed. Pinning it in place fixes that (it fades in). */
 export function ChatPanel({ open, onClose, signedInCustomer, state, limit, onSend, onNew, onDraftAdded }: Props) {
   const { t } = useLanguage()
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -57,7 +59,7 @@ export function ChatPanel({ open, onClose, signedInCustomer, state, limit, onSen
 
   return (
     <dialog ref={dialogRef} className="modal modal-bottom sm:modal-end" onClose={onClose} aria-label={t('chat.title')}>
-      <div className="modal-box flex h-[85dvh] max-h-none flex-col gap-0 p-0 sm:h-dvh sm:w-full sm:max-w-md sm:rounded-none">
+      <div className="modal-box flex h-[85dvh] max-h-none flex-col gap-0 p-0 sm:h-dvh sm:w-full sm:max-w-md sm:rounded-none sm:[translate:0]">
         {/* Header */}
         <div className="bg-secondary text-secondary-content flex items-center gap-2 px-4 py-3">
           <div className="flex-1">
