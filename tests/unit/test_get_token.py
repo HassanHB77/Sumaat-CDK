@@ -2,7 +2,7 @@ import boto3
 import pytest
 from moto import mock_aws
 
-from scripts.get_token import get_id_token
+from scripts.get_token import get_access_token, get_id_token
 
 PASSWORD = "Test#Pass2026"
 
@@ -30,3 +30,10 @@ def test_wrong_password(pool):
     cognito, client_id = pool
     with pytest.raises(cognito.exceptions.NotAuthorizedException):
         get_id_token(cognito, client_id, "owner@example.com", "Wrong#Pass1")
+
+
+def test_returns_access_token(pool):
+    cognito, client_id = pool
+    access = get_access_token(cognito, client_id, "owner@example.com", PASSWORD)
+    assert access.count(".") == 2
+    assert access != get_id_token(cognito, client_id, "owner@example.com", PASSWORD)

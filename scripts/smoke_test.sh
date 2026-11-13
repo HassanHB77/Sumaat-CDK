@@ -12,6 +12,10 @@
 #   - orders are real history: each run adds a few, all finished (served / cancelled / rejected)
 #   - the restaurant is left open (resumed) with its hours unchanged
 # Order tests are skipped if the restaurant is closed right now (Riyadh time).
+#
+# AI chat (always through CloudFront /agent/chat): the free checks (visitor, ID token, owner, empty message, quota
+# route) use no AI and no daily messages. The real AI reply is opt-in, because it uses 1 of omar's 10 messages today:
+#   SUMAAT_PASSWORD='...' CHAT=1 ./scripts/smoke_test.sh
 # Needs: curl, jq, uv (for scripts/get_token.py), outputs.json from `cdk deploy --outputs-file outputs.json`.
 
 set -u
@@ -81,6 +85,7 @@ skip() {
 field() { jq -r "$1" "$BODY"; }
 
 token() { SUMAAT_PASSWORD="$SUMAAT_PASSWORD" uv run --quiet python scripts/get_token.py "$1" 2>/dev/null; }
+atoken() { SUMAAT_PASSWORD="$SUMAAT_PASSWORD" uv run --quiet python scripts/get_token.py --access "$1" 2>/dev/null; }
 
 echo "Sumaat smoke test -> $API (restaurant: $RESTAURANT)"
 
@@ -287,6 +292,54 @@ else
   req POST "/restaurants/$RID/pause" "$CASHIER" >/dev/null
   check "order while paused -> 409" 409 POST /orders "$OMAR" "$ORDER_B"
   req POST "/restaurants/$RID/resume" "$CASHIER" >/dev/null
+fi
+
+# --- AI chat ----------------------------------------------------------------------
+section "AI chat"
+AGENT="$(jq -r '.SumaatWeb.SiteUrl' outputs.json)"
+AGENT="${AGENT%/}/agent/chat"
+OMAR_A="$(atoken omar@example.com)"
+OWNER_A="$(atoken "owner.$RESTAURANT@example.com")"
+
+# chat [BEARER_TOKEN] JSON -> prints "HTTP_STATUS SECONDS", the SSE stream saved in $BODY
+chat() {
+  local token="$1" data="$2"
+  local args=(-sN --max-time 60 -o "$BODY" -w '%{http_code} %{time_total}' -X POST "$AGENT"
+    -H 'Content-Type: application/json'
+    -H "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id: smoke-$(uuidgen | tr 'A-Z' 'a-z')" -d "$data")
+  [ -n "$token" ] && args+=(-H "Authorization: Bearer $token")
+  curl "${args[@]}"
+}
+# events -> one JSON event per line (the "data: " lines of the stream)
+events() { sed -n 's/^data: //p' "$BODY"; }
+HELLO='{"message":"hi","lang":"en"}'
+
+expect "chat as visitor -> 401" "$(chat "" "$HELLO" | cut -d' ' -f1)" 401
+expect "chat with ID token -> 401 (needs access token)" "$(chat "$OMAR" "$HELLO" | cut -d' ' -f1)" 401
+expect "chat as owner -> 200" "$(chat "$OWNER_A" "$HELLO" | cut -d' ' -f1)" 200
+expect "  ... error not_customer" "$(events | jq -r 'select(.type == "error") | .code' | head -1)" not_customer
+chat "$OMAR_A" '{"message":"   ","lang":"en"}' >/dev/null
+expect "chat empty message -> invalid_message" "$(events | jq -r 'select(.type == "error") | .code' | head -1)" invalid_message
+
+check "GET /me/chat-quota (Omar)" 200 GET /me/chat-quota "$OMAR"
+LEFT="$(field '.left')"
+expect "chat daily limit is 10" "$(field '.limit')" 10
+expect "chat messages left is 0-10" "$([ "$LEFT" -ge 0 ] 2>/dev/null && [ "$LEFT" -le 10 ] && echo yes || echo "no ($LEFT)")" yes
+check "GET /me/chat-quota as owner -> 403" 403 GET /me/chat-quota "$OWNER"
+check "GET /me/chat-quota without token -> 401" 401 GET /me/chat-quota
+
+if [ "${CHAT:-0}" != 1 ]; then
+  skip "AI reply: set CHAT=1 (uses 1 of omar's 10 daily messages)"
+elif [ "$LEFT" = 0 ]; then
+  skip "AI reply: omar has no chat messages left today"
+else
+  read -r CODE SECS < <(chat "$OMAR_A" "{\"message\":\"What desserts are near me?\",\"lat\":$LAT,\"lng\":$LNG,\"lang\":\"en\"}")
+  expect "AI reply -> 200" "$CODE" 200
+  expect "  ... first event: quota, one fewer left" "$(events | head -1 | jq -r '"\(.type) \(.left)"')" "quota $((LEFT - 1))"
+  expect "  ... has text" "$(events | jq -r 'select(.type == "text") | .type' | head -1)" text
+  expect "  ... not blocked, no error" "$(events | jq -r 'select(.type == "blocked" or .type == "error") | "\(.type) \(.code // "")"' | head -1)" ""
+  expect "  ... ends with done" "$(events | tail -1 | jq -r '.type')" done
+  printf '      reply in %s s: %s\n' "$SECS" "$(events | jq -rj 'select(.type == "text") | .delta' | tr '\n' ' ' | head -c 100)"
 fi
 
 # --- end state --------------------------------------------------------------------
