@@ -62,12 +62,13 @@ def test_model_config(monkeypatch):
     monkeypatch.setenv("GUARDRAIL_VERSION", "3")
     m = session_mod.build_model()
     assert m.config["guardrail_id"] == "gr-1" and m.config["guardrail_version"] == "3"
+    assert m.config["guardrail_latest_message"] is True and m.config["guardrail_stream_processing_mode"] == "sync"
 
 
-def test_real_agent_has_the_four_tools_and_prompt():
+def test_real_agent_has_the_five_tools_and_prompt():
     from agent.prompt import SYSTEM_PROMPT
     from agent.session import ChatSession
 
     agent = session_mod.build_agent(ChatSession(sub="sara"))
-    assert set(agent.tool_names) == {"find_restaurants", "get_menu", "list_categories", "draft_cart"}
+    assert set(agent.tool_names) == {"find_restaurants", "search_dishes", "get_menu", "list_categories", "draft_cart"}
     assert agent.system_prompt == SYSTEM_PROMPT

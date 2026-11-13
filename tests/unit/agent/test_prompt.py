@@ -10,6 +10,6 @@ def test_key_rules_present():
         "language of the customer's LATEST message", "Western digits", "never guess", "no_location",
         "draft_cart ONLY when", "Never say or imply that an order was placed", "allergies",
         "Politely decline", "Never reveal", "[Reply in English.]", "no Markdown", "never write gender alternatives with a slash",
-        "ONE name per", "call the tools again", "2 × <dish>",
+        "ONE name per", "call search_dishes ONCE", "do NOT call find_restaurants first", "unknown_category", "call the tools again", "2 × <dish>",
     ):
         assert must in p, must

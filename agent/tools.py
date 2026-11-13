@@ -30,6 +30,32 @@ def build_tools(session: "ChatSession") -> list:
         return catalog.find_restaurants(session.spot, radius_km, open_now_only)
 
     @tool
+    def search_dishes(
+        category: str | None = None,
+        diet_tags: list[str] | None = None,
+        max_calories: int | None = None,
+        max_price_sar: float | None = None,
+        open_now_only: bool = False,
+    ) -> dict:
+        """Search dishes across ALL restaurants near the customer's map spot in one call. Prefer this for any
+        dish request ("something vegetarian under 20 SAR", "desserts", "spicy food near me").
+
+        Each dish includes its restaurant (name, distanceKm, status open/paused/closed, opensAt).
+        Results: nearest restaurant first, cheapest dish first. All given filters must match.
+
+        Args:
+            category: Optional menu category, e.g. "Desserts" (see list_categories).
+            diet_tags: Optional tags the dish must have: vegetarian, vegan, gluten_free, dairy_free,
+                high_protein, spicy.
+            max_calories: Optional calorie limit (dishes with unknown calories are left out).
+            max_price_sar: Optional maximum price in SAR.
+            open_now_only: True to include only restaurants taking orders right now.
+        """
+        if session.spot is None:
+            return {"error": "no_location"}
+        return catalog.search_dishes(session.spot, category, diet_tags, max_calories, max_price_sar, open_now_only)
+
+    @tool
     def get_menu(
         restaurant_id: str,
         category: str | None = None,
@@ -37,7 +63,8 @@ def build_tools(session: "ChatSession") -> list:
         max_calories: int | None = None,
         max_price_sar: float | None = None,
     ) -> dict:
-        """Get a restaurant's available dishes (prices in SAR, VAT included). All given filters must match.
+        """Get ONE restaurant's available dishes (prices in SAR, VAT included). All given filters must match.
+        Use it when the customer asks about a specific restaurant; for dishes across restaurants use search_dishes.
 
         Args:
             restaurant_id: The restaurant id from find_restaurants.
@@ -63,11 +90,11 @@ def build_tools(session: "ChatSession") -> list:
 
         Args:
             restaurant_id: The restaurant id.
-            items: The dishes, e.g. [{"itemId": "<dish id from get_menu>", "qty": 2}]. qty 1 to 20.
+            items: The dishes, e.g. [{"itemId": "<dish id from search_dishes or get_menu>", "qty": 2}]. qty 1 to 20.
         """
         result = catalog.draft_cart(restaurant_id, items)
         if "draft" in result:
             session.pending_draft = result["draft"]
         return result
 
-    return [find_restaurants, get_menu, list_categories, draft_cart]
+    return [find_restaurants, search_dishes, get_menu, list_categories, draft_cart]

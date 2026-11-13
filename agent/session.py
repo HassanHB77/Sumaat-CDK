@@ -44,6 +44,9 @@ def build_model():
         config["guardrail_version"] = os.environ.get("GUARDRAIL_VERSION", "DRAFT")
         # Check the reply BEFORE each piece streams out, so blocked text never flashes on screen.
         config["guardrail_stream_processing_mode"] = "sync"
+        # Check the customer's newest message, not the whole history and tool data again on every model call
+        # (faster; earlier messages were already checked when they were sent). Replies are always checked.
+        config["guardrail_latest_message"] = True
     return BedrockModel(region_name=os.environ.get("AWS_REGION", "us-east-1"), **config)
 
 

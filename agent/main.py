@@ -25,7 +25,7 @@ from bedrock_agentcore.runtime import BedrockAgentCoreApp, RequestContext
 from agent.catalog import Spot
 from agent.claims import caller_from
 from agent.session import Sessions
-from agent.text import MarkerFilter, ThinkingFilter, reply_language, western_digits
+from agent.text import MarkdownFilter, MarkerFilter, ThinkingFilter, reply_language, western_digits
 from api.services import chat_quota
 
 logging.basicConfig(level=logging.WARNING)  # libraries: warnings only (they may log request details at INFO)
@@ -115,13 +115,14 @@ async def invoke(payload: dict, context: RequestContext):
         seen_tool_ids: set[str] = set()
         clean = ThinkingFilter()
         marker = MarkerFilter()  # the guardrail's blocked message
+        plain = MarkdownFilter()
         result = None
         tokens_before = _usage(session.agent)
         try:
             async with asyncio.timeout(TIMEOUT_SECONDS):
                 async for event in session.agent.stream_async(prompt, limits={"turns": MAX_TURNS}):
                     if "data" in event:
-                        text = western_digits(marker.feed(clean.feed(event["data"])))
+                        text = western_digits(plain.feed(marker.feed(clean.feed(event["data"]))))
                         if text:
                             yield {"type": "text", "delta": text}
                     elif "current_tool_use" in event:
@@ -133,7 +134,7 @@ async def invoke(payload: dict, context: RequestContext):
                             yield {"type": "status", "tool": name}
                     elif "result" in event:
                         result = event["result"]
-            rest = western_digits(marker.feed(clean.flush()) + marker.flush())
+            rest = western_digits(plain.feed(marker.feed(clean.flush()) + marker.flush()) + plain.flush())
             if rest:
                 yield {"type": "text", "delta": rest}
         except Exception as e:  # model / AWS / timeout: give the message back, keep details out of the reply

@@ -259,3 +259,10 @@ def test_guardrail_mode_is_sync(monkeypatch):
 
     monkeypatch.setenv("GUARDRAIL_ID", "gr-1")
     assert session_mod.build_model().config["guardrail_stream_processing_mode"] == "sync"
+
+
+def test_markdown_removed_from_reply(agent_script):
+    script, _ = agent_script
+    script[:] = [{"data": "- **Kleija** – 15 SAR"}, {"result": None}]
+    texts = [e["delta"] for e in chat({"message": "sweets?"}) if e["type"] == "text"]
+    assert "".join(texts) == "- Kleija – 15 SAR"

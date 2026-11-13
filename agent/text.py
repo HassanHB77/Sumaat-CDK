@@ -18,6 +18,35 @@ def western_digits(text: str) -> str:
     return text.translate(_DIGITS)
 
 
+class MarkdownFilter:
+    """Drops Markdown emphasis (** and __) and heading marks (# at a line start): the chat shows plain text.
+    The model is told not to use Markdown, but doesn't always listen."""
+
+    def __init__(self) -> None:
+        self._buf = ""
+        self._line_start = True
+
+    def feed(self, chunk: str) -> str:
+        text = self._buf + chunk
+        keep = 1 if text.endswith(("*", "_")) else 0  # may be the first half of ** / __
+        text, self._buf = text[: len(text) - keep], text[len(text) - keep :]
+        return self._clean(text)
+
+    def flush(self) -> str:
+        rest, self._buf = self._buf, ""
+        return self._clean(rest)
+
+    def _clean(self, text: str) -> str:
+        text = text.replace("**", "").replace("__", "")
+        out = []
+        for i, line in enumerate(text.split("\n")):
+            at_start = self._line_start if i == 0 else True
+            out.append(re.sub(r"^#{1,6}\s+", "", line) if at_start else line)
+        if text:
+            self._line_start = text.endswith("\n")
+        return "\n".join(out)
+
+
 def reply_language(message: str, site_lang: object = None) -> str:
     """"Arabic" or "English": the message's own script wins; otherwise (e.g. "2") the site language."""
     if _ARABIC_LETTER.search(message):

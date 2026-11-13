@@ -36,3 +36,13 @@ def test_menu_and_categories(shop):
     t = tools(ChatSession(sub="sara"))
     assert t["get_menu"](restaurant_id=shop["rid"], max_price_sar=10)["count"] == 1
     assert "Mains" in t["list_categories"]()["categories"]
+
+
+def test_search_dishes_needs_a_spot():
+    assert tools(ChatSession(sub="sara"))["search_dishes"]() == {"error": "no_location"}
+
+
+def test_search_dishes_uses_the_session_spot(shop):
+    s = ChatSession(sub="sara", spot=Spot(NEW["lat"], NEW["lng"]))
+    res = tools(s)["search_dishes"](max_price_sar=10)
+    assert shop["fries"] in [d["id"] for d in res["dishes"]]

@@ -51,3 +51,22 @@ def test_marker_filter(chunks, text, seen):
     f = MarkerFilter()
     out = "".join(f.feed(c) for c in chunks) + f.flush()
     assert (out, f.seen) == (text, seen)
+
+
+from agent.text import MarkdownFilter  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "chunks, expected",
+    [
+        (["Try **Kleija** now"], "Try Kleija now"),
+        (["Try *", "*Kleija*", "* now"], "Try Kleija now"),  # ** split across chunks
+        (["## Options\n- a\n# b"], "Options\n- a\nb"),
+        (["gluten_free and 2 * 3"], "gluten_free and 2 * 3"),  # single * and _ stay
+        (["price #1 ", "## not a heading"], "price #1 ## not a heading"),  # only at a line start
+        (["ends with *"], "ends with *"),
+    ],
+)
+def test_markdown_filter(chunks, expected):
+    f = MarkdownFilter()
+    assert "".join(f.feed(c) for c in chunks) + f.flush() == expected

@@ -202,3 +202,61 @@ def test_dish_from_another_restaurant_is_unknown(shop):
     assert nakhla["status"] == "open"
     res = catalog.draft_cart(nakhla["id"], [{"itemId": shop["burger"], "qty": 1}])
     assert res == {"error": "unknown_items", "itemIds": [shop["burger"]]}
+
+
+# --- search_dishes -----------------------------------------------------------
+
+
+def test_search_dishes_across_restaurants(shop):
+    res = catalog.search_dishes(HERE, max_price_sar=20)
+    assert res["restaurantsSearched"] >= 2
+    places = {d["restaurant"]["name"] for d in res["dishes"]}
+    assert NEW["name"] in places and len(places) >= 2  # the shop + seeded restaurants nearby
+    assert all(float(d["priceSar"]) <= 20 for d in res["dishes"])
+    fries = next(d for d in res["dishes"] if d["id"] == shop["fries"])
+    assert fries["restaurant"] == {"id": shop["rid"], "name": NEW["name"], "nameAr": NEW["nameAr"],
+                                   "distanceKm": 0.0, "status": "open"}
+    dists = [d["restaurant"]["distanceKm"] for d in res["dishes"]]
+    assert dists == sorted(dists)  # nearest restaurant first
+    json.dumps(res)
+
+
+def test_search_dishes_cheapest_first_within_a_restaurant(shop):
+    mine_only = [d for d in catalog.search_dishes(HERE)["dishes"] if d["restaurant"]["id"] == shop["rid"]]
+    assert [d["id"] for d in mine_only] == [shop["fries"], shop["burger"]]
+
+
+def test_search_dishes_marks_closed_and_open_now_only(shop, clock):
+    clock.set(at(11))  # shop opens 16:00
+    fries = next(d for d in catalog.search_dishes(HERE)["dishes"] if d["id"] == shop["fries"])
+    assert fries["restaurant"]["status"] == "closed" and fries["restaurant"]["opensAt"] == "16:00"
+    assert shop["fries"] not in [d["id"] for d in catalog.search_dishes(HERE, open_now_only=True)["dishes"]]
+
+
+def test_search_dishes_filters_and_hidden(shop):
+    shop["owner"].patch(f"/restaurants/{shop['rid']}/menu/{shop['fries']}", json={"isAvailable": False})
+    ids = [d["id"] for d in catalog.search_dishes(HERE, category="Sides")["dishes"]]
+    assert shop["fries"] not in ids
+    assert catalog.search_dishes(HERE, diet_tags=["keto"])["error"] == "unknown_diet_tags"
+    veg = catalog.search_dishes(HERE, diet_tags=["vegetarian"])["dishes"]
+    assert veg and all("vegetarian" in d["dietTags"] for d in veg)
+
+
+def test_search_dishes_is_capped(shop, monkeypatch):
+    monkeypatch.setattr(catalog, "MAX_SEARCH_DISHES", 2)
+    res = catalog.search_dishes(HERE)
+    assert len(res["dishes"]) == 2 and res["truncated"] is True and res["count"] > 2
+
+
+def test_search_dishes_nothing_far_away(shop):
+    assert catalog.search_dishes(Spot(24.7136, 46.6753))["dishes"] == []
+
+
+@pytest.mark.parametrize("call", ["menu", "search"])
+def test_unknown_category_lists_the_real_ones(shop, call):
+    res = catalog.get_menu(shop["rid"], category="Desserts") if call == "menu" else catalog.search_dishes(HERE, category="Desserts")
+    assert res["error"] == "unknown_category" and res["unknown"] == "Desserts" and "Sweets" in res["allowed"]
+
+
+def test_category_match_ignores_case(shop):
+    assert "error" not in catalog.search_dishes(HERE, category="sweets")

@@ -20,6 +20,7 @@ from api.services import categories, restaurants
 
 MIN_RADIUS_KM = 0.5
 MAX_MENU_ITEMS = 60  # keeps the model's input small; real menus are far smaller
+MAX_SEARCH_DISHES = 30
 MAX_QTY = 20  # same limits as the web cart (web/src/cart/cartLogic.ts) and the order API
 MAX_LINES = 20
 DIET_TAGS: tuple[str, ...] = get_args(DietTag)
@@ -91,6 +92,45 @@ def _load(restaurant_id: str) -> dict | None:
         return None
 
 
+def _check_tags(diet_tags: list[str] | None) -> tuple[list[str], dict | None]:
+    tags = [t.strip().lower() for t in (diet_tags or []) if t and t.strip()]
+    unknown = [t for t in tags if t not in DIET_TAGS]
+    if unknown:
+        return tags, {"error": "unknown_diet_tags", "unknown": unknown, "allowed": list(DIET_TAGS)}
+    return tags, None
+
+
+def _check_category(category: str | None) -> dict | None:
+    """An unknown category is an error listing the real ones (the model often guesses e.g. "Desserts")."""
+    if not category or not category.strip():
+        return None
+    allowed = categories.ordered()
+    if category.strip().lower() in {c.lower() for c in allowed}:
+        return None
+    return {"error": "unknown_category", "unknown": category, "allowed": allowed}
+
+
+def _matching(
+    menu: list[dict],
+    category: str | None,
+    tags: list[str],
+    max_calories: int | None,
+    max_price_sar: float | None,
+) -> list[dict]:
+    """Available dishes that pass every given filter."""
+    items = [i for i in menu if i.get("isAvailable", True)]
+    if category:
+        items = [i for i in items if i["category"].lower() == category.strip().lower()]
+    if tags:
+        items = [i for i in items if set(tags) <= set(i.get("dietTags", []))]
+    if max_calories is not None:
+        # Unknown calories (0) can't be shown to fit a calorie limit, so they are left out.
+        items = [i for i in items if 0 < int(i.get("calories", 0)) <= max_calories]
+    if max_price_sar is not None:
+        items = [i for i in items if int(i["priceHalalas"]) <= round(max_price_sar * 100)]
+    return items
+
+
 def get_menu(
     restaurant_id: str,
     category: str | None = None,
@@ -102,27 +142,53 @@ def get_menu(
     r = _load(restaurant_id)
     if r is None:
         return {"error": "restaurant_not_found"}
-    tags = [t.strip().lower() for t in (diet_tags or []) if t and t.strip()]
-    unknown = [t for t in tags if t not in DIET_TAGS]
-    if unknown:
-        return {"error": "unknown_diet_tags", "unknown": unknown, "allowed": list(DIET_TAGS)}
-
-    items = [i for i in r["menu"] if i.get("isAvailable", True)]
-    if category:
-        items = [i for i in items if i["category"].lower() == category.strip().lower()]
-    if tags:
-        items = [i for i in items if set(tags) <= set(i.get("dietTags", []))]
-    if max_calories is not None:
-        # Unknown calories (0) can't be shown to fit a calorie limit, so they are left out.
-        items = [i for i in items if 0 < int(i.get("calories", 0)) <= max_calories]
-    if max_price_sar is not None:
-        items = [i for i in items if int(i["priceHalalas"]) <= round(max_price_sar * 100)]
-
+    tags, err = _check_tags(diet_tags)
+    err = err or _check_category(category)
+    if err:
+        return err
+    items = _matching(r["menu"], category, tags, max_calories, max_price_sar)
     return {
         "restaurant": _restaurant(r),
         "count": len(items),
         "truncated": len(items) > MAX_MENU_ITEMS,
         "items": [_item(i) for i in items[:MAX_MENU_ITEMS]],
+    }
+
+
+def search_dishes(
+    spot: Spot,
+    category: str | None = None,
+    diet_tags: list[str] | None = None,
+    max_calories: int | None = None,
+    max_price_sar: float | None = None,
+    open_now_only: bool = False,
+    radius_km: float = MAX_RADIUS_KM,
+) -> dict:
+    """Matching dishes from EVERY restaurant near the spot, in one call (nearest restaurant first, then cheapest).
+
+    One call instead of find_restaurants + get_menu per restaurant: fewer model round trips, faster replies.
+    """
+    tags, err = _check_tags(diet_tags)
+    err = err or _check_category(category)
+    if err:
+        return err
+    nearby = find_restaurants(spot, radius_km, open_now_only)
+    dishes: list[dict] = []
+    for summary in nearby["restaurants"]:
+        r = _load(summary["id"])
+        if r is None:  # removed between the two reads
+            continue
+        place = {k: summary[k] for k in ("id", "name", "nameAr", "distanceKm", "status")}
+        if "opensAt" in summary:
+            place["opensAt"] = summary["opensAt"]
+        matches = sorted(_matching(r["menu"], category, tags, max_calories, max_price_sar), key=lambda i: int(i["priceHalalas"]))
+        dishes += [{**_item(i), "restaurant": place} for i in matches]
+    return {
+        "radiusKm": nearby["radiusKm"],
+        "restaurantsSearched": nearby["count"],
+        "count": len(dishes),
+        "truncated": len(dishes) > MAX_SEARCH_DISHES,
+        "dishes": dishes[:MAX_SEARCH_DISHES],
     }
 
 
