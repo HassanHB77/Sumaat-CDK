@@ -22,6 +22,7 @@ lambda = [
 # After changing it: uv lock && uv export --only-group agent --no-hashes --no-emit-project -o agent/requirements.txt
 agent = [
     "bedrock-agentcore>=1.26.0",
+    "fastapi>=0.120",  # api/services import api.auth (FastAPI); the agent reuses those services
 ]
 dev = [
     {include-group = "lambda"},

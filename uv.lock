@@ -866,6 +866,7 @@ dependencies = [
 [package.dev-dependencies]
 agent = [
     { name = "bedrock-agentcore" },
+    { name = "fastapi" },
 ]
 dev = [
     { name = "bedrock-agentcore" },
@@ -890,7 +891,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-agent = [{ name = "bedrock-agentcore", specifier = ">=1.26.0" }]
+agent = [
+    { name = "bedrock-agentcore", specifier = ">=1.26.0" },
+    { name = "fastapi", specifier = ">=0.120" },
+]
 dev = [
     { name = "bedrock-agentcore", specifier = ">=1.26.0" },
     { name = "boto3", specifier = ">=1.40" },

@@ -37,6 +37,13 @@ def test_table_keys_billing_stream_pitr(template):
     )
 
 
+def test_ttl_on_expires_at(template):
+    template.has_resource_properties(
+        "AWS::DynamoDB::Table",
+        {"TimeToLiveSpecification": {"AttributeName": "expiresAt", "Enabled": True}},
+    )
+
+
 @pytest.mark.parametrize("n", [1, 2])
 def test_gsis(template, n):
     template.has_resource_properties(
