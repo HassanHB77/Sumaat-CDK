@@ -80,6 +80,33 @@ export function reconcile(cart: Cart, restaurantId: string, menu: MenuItem[]): {
   return { cart: lines.length ? { ...cart, lines } : { ...EMPTY_CART }, changed: true }
 }
 
+/** A cart drafted by the AI assistant (agent/catalog.py draft_cart): prices come from the database. */
+export type CartDraft = {
+  restaurant: CartRestaurant
+  lines: CartLine[]
+  totalHalalas: number
+}
+
+/**
+ * "Add to cart" on an assistant draft: the cart BECOMES the draft (the chat shows a note saying so when the cart
+ * isn't empty). The cart's note is kept only for the same restaurant. Limits are re-applied defensively.
+ */
+export function fromDraft(cart: Cart, draft: CartDraft): Cart {
+  const lines = draft.lines
+    .filter((l) => l.qty > 0)
+    .slice(0, MAX_LINES)
+    .map((l) => ({ itemId: l.itemId, name: l.name, nameAr: l.nameAr, priceHalalas: l.priceHalalas, qty: Math.min(l.qty, MAX_QTY) }))
+  if (!lines.length) return cart
+  const sameRestaurant = cart.restaurantId === draft.restaurant.id
+  return {
+    restaurantId: draft.restaurant.id,
+    restaurantName: draft.restaurant.name,
+    restaurantNameAr: draft.restaurant.nameAr,
+    lines,
+    note: sameRestaurant ? cart.note : '',
+  }
+}
+
 /** Read a saved cart; anything broken -> empty cart. */
 export function parseCart(raw: string | null): Cart {
   if (!raw) return { ...EMPTY_CART }

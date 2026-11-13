@@ -5,6 +5,7 @@ import { findOpenOrderAt, isFinal, rejectReason, stepIndex, timeOf } from '../li
 import {
   addItem,
   EMPTY_CART,
+  fromDraft,
   itemCount,
   MAX_LINES,
   MAX_QTY,
@@ -16,6 +17,7 @@ import {
   setQty,
   toOrderBody,
   totalHalalas,
+  type CartDraft,
 } from './cartLogic'
 
 const NAKHLA = { id: 'r1', name: 'Nakhla Kitchen', nameAr: 'مطبخ النخلة' }
@@ -133,5 +135,49 @@ describe('orders', () => {
     expect(formatOrderLabel(7, '2026-11-12', 'ar')).not.toMatch(/[٠-٩]/) // Western digits only
     expect(formatTime('2026-11-12T11:05:00Z', 'en')).toBe('14:05') // UTC+3
     expect(formatTime('2026-11-12T21:30:00Z', 'en')).toBe('00:30')
+  })
+})
+
+describe('fromDraft (AI assistant draft -> cart)', () => {
+  const draft = (over: Partial<CartDraft> = {}): CartDraft => ({
+    restaurant: { id: 'r2', name: 'Mubarraz Dates & Coffee', nameAr: 'تمر وقهوة المبرز' },
+    lines: [{ itemId: 'k', name: 'Kleija', nameAr: 'كليجا', priceHalalas: 1500, qty: 2 }],
+    totalHalalas: 3000,
+    ...over,
+  })
+  const existing = {
+    restaurantId: 'r1',
+    restaurantName: 'Nakhla Kitchen',
+    restaurantNameAr: 'مطبخ النخلة',
+    lines: [{ itemId: 'a', name: 'Harees', nameAr: 'هريس', priceHalalas: 2000, qty: 1 }],
+    note: 'no onions',
+  }
+
+  it('fills an empty cart', () => {
+    const c = fromDraft(EMPTY_CART, draft())
+    expect(c.restaurantId).toBe('r2')
+    expect(c.restaurantNameAr).toBe('تمر وقهوة المبرز')
+    expect(c.lines).toEqual(draft().lines)
+    expect(totalHalalas(c)).toBe(3000)
+  })
+
+  it('replaces another restaurant cart and drops its note', () => {
+    const c = fromDraft(existing, draft())
+    expect(c.lines.map((l) => l.itemId)).toEqual(['k'])
+    expect(c.note).toBe('')
+  })
+
+  it('replaces the same restaurant cart but keeps the note', () => {
+    const c = fromDraft(existing, draft({ restaurant: { id: 'r1', name: 'Nakhla Kitchen', nameAr: 'مطبخ النخلة' } }))
+    expect(c.lines.map((l) => l.itemId)).toEqual(['k'])
+    expect(c.note).toBe('no onions')
+  })
+
+  it('caps quantities and lines, ignores an empty draft', () => {
+    const many = Array.from({ length: MAX_LINES + 3 }, (_, i) => ({ itemId: `i${i}`, name: 'x', nameAr: 'x', priceHalalas: 100, qty: 50 }))
+    const c = fromDraft(EMPTY_CART, draft({ lines: many }))
+    expect(c.lines).toHaveLength(MAX_LINES)
+    expect(c.lines[0].qty).toBe(MAX_QTY)
+    expect(fromDraft(existing, draft({ lines: [] }))).toBe(existing)
   })
 })

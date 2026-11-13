@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import {
   addItem,
   EMPTY_CART,
+  fromDraft,
   itemCount,
   parseCart,
   reconcile,
@@ -11,6 +12,7 @@ import {
   setQty,
   totalHalalas,
   type Cart,
+  type CartDraft,
   type CartRestaurant,
 } from './cartLogic'
 
@@ -24,6 +26,8 @@ type CartValue = {
   setQty: (itemId: string, qty: number) => void
   setNote: (note: string) => void
   clear: () => void
+  /** The AI assistant's draft becomes the cart (replaces what was there). */
+  replaceWith: (draft: CartDraft) => void
   /** Match the cart to a freshly loaded menu; true if something changed (show a message). */
   reconcileWith: (restaurantId: string, menu: MenuItem[]) => boolean
 }
@@ -88,6 +92,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setQty: (itemId, qty) => setCart((c) => setQty(c, itemId, qty)),
       setNote: (note) => setCart((c) => setNote(c, note)),
       clear: () => setCart({ ...EMPTY_CART }),
+      replaceWith: (draft) => setCart((c) => fromDraft(c, draft)),
       reconcileWith,
     }),
     [cart, reconcileWith],

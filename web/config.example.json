@@ -3,5 +3,7 @@
   "userPoolId": "us-east-1_XXXXXXXXX",
   "userPoolClientId": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
   "locationApiKey": "v1.public.xxxxx",
-  "apiBase": "/api"
+  "apiBase": "/api",
+  "chatPath": "/agent/chat",
+  "chatDailyLimit": 10
 }

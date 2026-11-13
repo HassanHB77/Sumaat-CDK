@@ -5,8 +5,8 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 /**
- * Local dev: "/api" is proxied to the DEPLOYED site (CloudFront -> API Gateway), so the app always calls
- * relative "/api/..." paths, exactly like in production. The URL comes from ../outputs.json
+ * Local dev: "/api" (and "/agent", the AI chat) are proxied to the DEPLOYED site (CloudFront -> API Gateway /
+ * AgentCore), so the app always calls relative paths, exactly like in production. The URL comes from ../outputs.json
  * (written by `cdk deploy --outputs-file outputs.json`); override with SUMAAT_API_ORIGIN.
  */
 function apiOrigin(): string {
@@ -29,6 +29,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': { target: apiOrigin(), changeOrigin: true, secure: true },
+      '/agent': { target: apiOrigin(), changeOrigin: true, secure: true },
     },
   },
   test: {
