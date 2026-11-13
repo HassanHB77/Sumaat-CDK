@@ -120,6 +120,11 @@ class CategoriesOut(BaseModel):
     categories: list[str]
 
 
+class ChatQuotaOut(BaseModel):
+    left: int
+    limit: int
+
+
 class MenuItemOut(BaseModel):
     id: str
     restaurantId: str

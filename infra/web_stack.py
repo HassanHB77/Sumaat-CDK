@@ -27,6 +27,8 @@ from aws_cdk import custom_resources as cr
 from cdk_nag import NagSuppressions
 from constructs import Construct
 
+from api.services.chat_quota import DEFAULT_LIMIT
+
 ROOT = Path(__file__).resolve().parent.parent
 FUNCTIONS = Path(__file__).resolve().parent / "cf_functions"
 WEB_DIST = ROOT / "web" / "dist"  # the React build (Step 7)
@@ -141,6 +143,8 @@ class WebStack(Stack):
                         "userPoolClientId": user_pool_client.user_pool_client_id,
                         "locationApiKey": map_key,
                         "apiBase": "/api",
+                        "chatPath": "/agent/chat",  # AI chat (Step 9), same address -> AgentCore
+                        "chatDailyLimit": DEFAULT_LIMIT,
                     },
                 ),
             ],

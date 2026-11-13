@@ -12,10 +12,13 @@ anyio==4.16.0
     #   mcp
     #   sse-starlette
     #   starlette
+asgiref==3.13.0
+    # via opentelemetry-instrumentation-asgi
 attrs==26.1.0
     # via
     #   jsonschema
     #   referencing
+aws-opentelemetry-distro==0.22.0
 bedrock-agentcore==1.26.0
 boto3==1.44.0
     # via
@@ -27,12 +30,18 @@ botocore==1.44.0
     #   boto3
     #   s3transfer
     #   strands-agents
+cachetools==6.2.4
+    # via aws-opentelemetry-distro
 certifi==2026.10.23
     # via
+    #   aws-opentelemetry-distro
     #   httpcore
     #   httpx
+    #   requests
 cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via cryptography
+charset-normalizer==3.5.2
+    # via requests
 click==8.5.1
     # via uvicorn
 cryptography==50.0.2
@@ -40,6 +49,12 @@ cryptography==50.0.2
 docstring-parser==0.18.0
     # via strands-agents
 fastapi==0.162.4
+googleapis-common-protos==1.76.0
+    # via
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+grpcio==1.85.1
+    # via opentelemetry-exporter-otlp-proto-grpc
 h11==0.16.0
     # via
     #   httpcore
@@ -60,6 +75,7 @@ idna==3.20
     #   anyio
     #   httpx
     #   httpx2
+    #   requests
 jmespath==1.1.0
     # via
     #   boto3
@@ -74,27 +90,333 @@ mcp==2.3.0
     # via strands-agents
 mcp-types==2.3.0
     # via mcp
-opentelemetry-api==1.45.2
+opentelemetry-api==1.45.1
     # via
+    #   aws-opentelemetry-distro
     #   fastapi
     #   mcp
+    #   opentelemetry-distro
+    #   opentelemetry-exporter-http-transport
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-aio-pika
+    #   opentelemetry-instrumentation-aiohttp-client
+    #   opentelemetry-instrumentation-aiokafka
+    #   opentelemetry-instrumentation-aiopg
+    #   opentelemetry-instrumentation-asgi
+    #   opentelemetry-instrumentation-asyncpg
+    #   opentelemetry-instrumentation-boto3sqs
+    #   opentelemetry-instrumentation-botocore
+    #   opentelemetry-instrumentation-cassandra
+    #   opentelemetry-instrumentation-celery
+    #   opentelemetry-instrumentation-confluent-kafka
+    #   opentelemetry-instrumentation-dbapi
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-falcon
+    #   opentelemetry-instrumentation-fastapi
+    #   opentelemetry-instrumentation-flask
+    #   opentelemetry-instrumentation-grpc
+    #   opentelemetry-instrumentation-httpx
+    #   opentelemetry-instrumentation-jinja2
+    #   opentelemetry-instrumentation-kafka-python
+    #   opentelemetry-instrumentation-logging
+    #   opentelemetry-instrumentation-mysql
+    #   opentelemetry-instrumentation-mysqlclient
+    #   opentelemetry-instrumentation-pika
+    #   opentelemetry-instrumentation-psycopg2
+    #   opentelemetry-instrumentation-pymemcache
+    #   opentelemetry-instrumentation-pymongo
+    #   opentelemetry-instrumentation-pymysql
+    #   opentelemetry-instrumentation-pyramid
+    #   opentelemetry-instrumentation-redis
+    #   opentelemetry-instrumentation-remoulade
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-sqlalchemy
+    #   opentelemetry-instrumentation-sqlite3
+    #   opentelemetry-instrumentation-starlette
+    #   opentelemetry-instrumentation-system-metrics
     #   opentelemetry-instrumentation-threading
+    #   opentelemetry-instrumentation-tornado
+    #   opentelemetry-instrumentation-tortoiseorm
+    #   opentelemetry-instrumentation-urllib
+    #   opentelemetry-instrumentation-urllib3
+    #   opentelemetry-instrumentation-wsgi
+    #   opentelemetry-processor-baggage
+    #   opentelemetry-propagator-aws-xray
+    #   opentelemetry-propagator-b3
+    #   opentelemetry-propagator-jaeger
+    #   opentelemetry-propagator-ot-trace
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
     #   strands-agents
-opentelemetry-instrumentation==0.66b2
-    # via opentelemetry-instrumentation-threading
-opentelemetry-instrumentation-threading==0.66b2
-    # via strands-agents
-opentelemetry-sdk==1.45.2
-    # via strands-agents
-opentelemetry-semantic-conventions==0.66b2
+opentelemetry-distro==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-exporter-http-transport==0.66b1
+    # via opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-common==0.66b1
+    # via
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-common==1.45.1
+    # via
+    #   aws-opentelemetry-distro
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-grpc==1.45.1
+    # via aws-opentelemetry-distro
+opentelemetry-exporter-otlp-proto-http==1.45.1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation==0.66b1
+    # via
+    #   aws-opentelemetry-distro
+    #   opentelemetry-distro
+    #   opentelemetry-instrumentation-aio-pika
+    #   opentelemetry-instrumentation-aiohttp-client
+    #   opentelemetry-instrumentation-aiokafka
+    #   opentelemetry-instrumentation-aiopg
+    #   opentelemetry-instrumentation-asgi
+    #   opentelemetry-instrumentation-asyncpg
+    #   opentelemetry-instrumentation-aws-lambda
+    #   opentelemetry-instrumentation-boto3sqs
+    #   opentelemetry-instrumentation-botocore
+    #   opentelemetry-instrumentation-cassandra
+    #   opentelemetry-instrumentation-celery
+    #   opentelemetry-instrumentation-confluent-kafka
+    #   opentelemetry-instrumentation-dbapi
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-falcon
+    #   opentelemetry-instrumentation-fastapi
+    #   opentelemetry-instrumentation-flask
+    #   opentelemetry-instrumentation-grpc
+    #   opentelemetry-instrumentation-httpx
+    #   opentelemetry-instrumentation-jinja2
+    #   opentelemetry-instrumentation-kafka-python
+    #   opentelemetry-instrumentation-logging
+    #   opentelemetry-instrumentation-mysql
+    #   opentelemetry-instrumentation-mysqlclient
+    #   opentelemetry-instrumentation-pika
+    #   opentelemetry-instrumentation-psycopg2
+    #   opentelemetry-instrumentation-pymemcache
+    #   opentelemetry-instrumentation-pymongo
+    #   opentelemetry-instrumentation-pymysql
+    #   opentelemetry-instrumentation-pyramid
+    #   opentelemetry-instrumentation-redis
+    #   opentelemetry-instrumentation-remoulade
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-sqlalchemy
+    #   opentelemetry-instrumentation-sqlite3
+    #   opentelemetry-instrumentation-starlette
+    #   opentelemetry-instrumentation-system-metrics
+    #   opentelemetry-instrumentation-threading
+    #   opentelemetry-instrumentation-tornado
+    #   opentelemetry-instrumentation-tortoiseorm
+    #   opentelemetry-instrumentation-urllib
+    #   opentelemetry-instrumentation-urllib3
+    #   opentelemetry-instrumentation-wsgi
+opentelemetry-instrumentation-aio-pika==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-aiohttp-client==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-aiokafka==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-aiopg==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-asgi==0.66b1
+    # via
+    #   aws-opentelemetry-distro
+    #   opentelemetry-instrumentation-fastapi
+    #   opentelemetry-instrumentation-starlette
+opentelemetry-instrumentation-asyncpg==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-aws-lambda==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-boto3sqs==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-botocore==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-cassandra==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-celery==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-confluent-kafka==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-dbapi==0.66b1
+    # via
+    #   aws-opentelemetry-distro
+    #   opentelemetry-instrumentation-aiopg
+    #   opentelemetry-instrumentation-mysql
+    #   opentelemetry-instrumentation-mysqlclient
+    #   opentelemetry-instrumentation-psycopg2
+    #   opentelemetry-instrumentation-pymysql
+    #   opentelemetry-instrumentation-sqlite3
+opentelemetry-instrumentation-django==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-falcon==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-fastapi==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-flask==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-grpc==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-httpx==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-jinja2==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-kafka-python==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-logging==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-mysql==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-mysqlclient==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-pika==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-psycopg2==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-pymemcache==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-pymongo==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-pymysql==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-pyramid==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-redis==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-remoulade==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-requests==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-sqlalchemy==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-sqlite3==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-starlette==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-system-metrics==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-threading==0.66b1
+    # via
+    #   aws-opentelemetry-distro
+    #   strands-agents
+opentelemetry-instrumentation-tornado==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-tortoiseorm==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-urllib==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-urllib3==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-instrumentation-wsgi==0.66b1
+    # via
+    #   aws-opentelemetry-distro
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-falcon
+    #   opentelemetry-instrumentation-flask
+    #   opentelemetry-instrumentation-pyramid
+opentelemetry-processor-baggage==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-propagator-aws-xray==1.0.2
+    # via
+    #   aws-opentelemetry-distro
+    #   opentelemetry-instrumentation-aws-lambda
+    #   opentelemetry-instrumentation-botocore
+opentelemetry-propagator-b3==1.45.1
+    # via aws-opentelemetry-distro
+opentelemetry-propagator-jaeger==1.45.1
+    # via aws-opentelemetry-distro
+opentelemetry-propagator-ot-trace==0.66b1
+    # via aws-opentelemetry-distro
+opentelemetry-proto==1.45.1
+    # via
+    #   opentelemetry-exporter-otlp-proto-common
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-sdk==1.45.1
+    # via
+    #   aws-opentelemetry-distro
+    #   opentelemetry-distro
+    #   opentelemetry-exporter-otlp-common
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-processor-baggage
+    #   opentelemetry-propagator-ot-trace
+    #   opentelemetry-sdk-extension-aws
+    #   strands-agents
+opentelemetry-sdk-extension-aws==2.1.0
+    # via aws-opentelemetry-distro
+opentelemetry-semantic-conventions==0.66b1
     # via
     #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-aio-pika
+    #   opentelemetry-instrumentation-aiohttp-client
+    #   opentelemetry-instrumentation-aiokafka
+    #   opentelemetry-instrumentation-asgi
+    #   opentelemetry-instrumentation-asyncpg
+    #   opentelemetry-instrumentation-aws-lambda
+    #   opentelemetry-instrumentation-boto3sqs
+    #   opentelemetry-instrumentation-botocore
+    #   opentelemetry-instrumentation-cassandra
+    #   opentelemetry-instrumentation-celery
+    #   opentelemetry-instrumentation-confluent-kafka
+    #   opentelemetry-instrumentation-dbapi
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-falcon
+    #   opentelemetry-instrumentation-fastapi
+    #   opentelemetry-instrumentation-flask
+    #   opentelemetry-instrumentation-grpc
+    #   opentelemetry-instrumentation-httpx
+    #   opentelemetry-instrumentation-kafka-python
+    #   opentelemetry-instrumentation-logging
+    #   opentelemetry-instrumentation-pika
+    #   opentelemetry-instrumentation-pymemcache
+    #   opentelemetry-instrumentation-pymongo
+    #   opentelemetry-instrumentation-pyramid
+    #   opentelemetry-instrumentation-redis
+    #   opentelemetry-instrumentation-remoulade
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-sqlalchemy
+    #   opentelemetry-instrumentation-starlette
+    #   opentelemetry-instrumentation-system-metrics
+    #   opentelemetry-instrumentation-tornado
+    #   opentelemetry-instrumentation-tortoiseorm
+    #   opentelemetry-instrumentation-urllib
+    #   opentelemetry-instrumentation-urllib3
+    #   opentelemetry-instrumentation-wsgi
     #   opentelemetry-sdk
+opentelemetry-util-http==0.66b1
+    # via
+    #   opentelemetry-instrumentation-aiohttp-client
+    #   opentelemetry-instrumentation-asgi
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-falcon
+    #   opentelemetry-instrumentation-fastapi
+    #   opentelemetry-instrumentation-flask
+    #   opentelemetry-instrumentation-httpx
+    #   opentelemetry-instrumentation-pyramid
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-starlette
+    #   opentelemetry-instrumentation-tornado
+    #   opentelemetry-instrumentation-urllib
+    #   opentelemetry-instrumentation-urllib3
+    #   opentelemetry-instrumentation-wsgi
 packaging==26.3
-    # via opentelemetry-instrumentation
+    # via
+    #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-falcon
+    #   opentelemetry-instrumentation-flask
+    #   opentelemetry-instrumentation-pika
+    #   opentelemetry-instrumentation-sqlalchemy
+protobuf==6.33.5
+    # via
+    #   aws-opentelemetry-distro
+    #   googleapis-common-protos
+    #   opentelemetry-proto
+psutil==7.2.2
+    # via opentelemetry-instrumentation-system-metrics
 pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pydantic==2.14.3
@@ -109,17 +431,26 @@ pydantic-core==2.50.4
 pyjwt==2.15.1
     # via mcp
 python-dateutil==2.9.0.post0
-    # via botocore
+    # via
+    #   aws-opentelemetry-distro
+    #   botocore
 python-multipart==0.0.33
     # via mcp
 pywin32==312 ; sys_platform == 'win32'
     # via mcp
 pyyaml==6.0.3
-    # via strands-agents
+    # via
+    #   aws-opentelemetry-distro
+    #   strands-agents
 referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
+requests==2.34.2
+    # via
+    #   aws-opentelemetry-distro
+    #   opentelemetry-exporter-http-transport
+    #   opentelemetry-exporter-otlp-proto-http
 rpds-py==2026.9.1
     # via
     #   jsonschema
@@ -146,9 +477,14 @@ typing-extensions==4.16.0
     #   anyio
     #   bedrock-agentcore
     #   fastapi
+    #   grpcio
     #   mcp
     #   mcp-types
     #   opentelemetry-api
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-instrumentation-aiokafka
+    #   opentelemetry-propagator-b3
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
     #   pydantic
@@ -162,8 +498,10 @@ typing-inspection==0.4.5
     #   pydantic
 urllib3==2.8.0
     # via
+    #   aws-opentelemetry-distro
     #   bedrock-agentcore
     #   botocore
+    #   requests
 uvicorn==0.54.0
     # via
     #   bedrock-agentcore
@@ -175,4 +513,22 @@ websockets==17.4
 wrapt==2.5.2
     # via
     #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-aio-pika
+    #   opentelemetry-instrumentation-aiohttp-client
+    #   opentelemetry-instrumentation-aiopg
+    #   opentelemetry-instrumentation-boto3sqs
+    #   opentelemetry-instrumentation-botocore
+    #   opentelemetry-instrumentation-cassandra
+    #   opentelemetry-instrumentation-confluent-kafka
+    #   opentelemetry-instrumentation-dbapi
+    #   opentelemetry-instrumentation-grpc
+    #   opentelemetry-instrumentation-httpx
+    #   opentelemetry-instrumentation-jinja2
+    #   opentelemetry-instrumentation-pika
+    #   opentelemetry-instrumentation-pymemcache
+    #   opentelemetry-instrumentation-pyramid
+    #   opentelemetry-instrumentation-redis
+    #   opentelemetry-instrumentation-sqlalchemy
     #   opentelemetry-instrumentation-threading
+    #   opentelemetry-instrumentation-urllib3
+    #   opentelemetry-processor-baggage

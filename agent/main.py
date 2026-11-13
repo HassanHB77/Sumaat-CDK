@@ -6,7 +6,8 @@ AgentCore has already checked the Cognito access token. Then, per message:
   3. one message at a time per chat                         -> else error busy (not counted)
   4. take one message from today's allowance (10/day)       -> quota {left} | error quota_exceeded
   5. run the Strands agent (Nova 2 Lite + tools), streaming -> status {tool} / text {delta}
-  6. if the assistant drafted a cart                        -> draft {...}
+  6. if the guardrail stepped in                            -> blocked (the UI shows its own message)
+     else if the assistant drafted a cart                   -> draft {...}
   7.                                                         -> done
 If the model or AWS fails, the message is given back and the customer gets error busy|failed (never the
 exception text). Logs carry outcome, timing, tool names and token counts only: no message text, no ids.
@@ -24,7 +25,7 @@ from bedrock_agentcore.runtime import BedrockAgentCoreApp, RequestContext
 from agent.catalog import Spot
 from agent.claims import caller_from
 from agent.session import Sessions
-from agent.text import ThinkingFilter, reply_language, western_digits
+from agent.text import MarkerFilter, ThinkingFilter, reply_language, western_digits
 from api.services import chat_quota
 
 logging.basicConfig(level=logging.WARNING)  # libraries: warnings only (they may log request details at INFO)
@@ -113,13 +114,14 @@ async def invoke(payload: dict, context: RequestContext):
         tools_used: list[str] = []
         seen_tool_ids: set[str] = set()
         clean = ThinkingFilter()
+        marker = MarkerFilter()  # the guardrail's blocked message
         result = None
         tokens_before = _usage(session.agent)
         try:
             async with asyncio.timeout(TIMEOUT_SECONDS):
                 async for event in session.agent.stream_async(prompt, limits={"turns": MAX_TURNS}):
                     if "data" in event:
-                        text = western_digits(clean.feed(event["data"]))
+                        text = western_digits(marker.feed(clean.feed(event["data"])))
                         if text:
                             yield {"type": "text", "delta": text}
                     elif "current_tool_use" in event:
@@ -131,7 +133,7 @@ async def invoke(payload: dict, context: RequestContext):
                             yield {"type": "status", "tool": name}
                     elif "result" in event:
                         result = event["result"]
-            rest = western_digits(clean.flush())
+            rest = western_digits(marker.feed(clean.flush()) + marker.flush())
             if rest:
                 yield {"type": "text", "delta": rest}
         except Exception as e:  # model / AWS / timeout: give the message back, keep details out of the reply
@@ -146,14 +148,18 @@ async def invoke(payload: dict, context: RequestContext):
             yield error(code)
             return
 
+        stop = getattr(result, "stop_reason", None)
+        blocked = marker.seen or stop == "guardrail_intervened"
+        if blocked:
+            session.pending_draft = None  # nothing from a blocked turn is offered
+            yield {"type": "blocked"}  # the UI shows its own EN/AR message
         if session.pending_draft:
             yield {"type": "draft", **session.pending_draft}
         tokens_after = _usage(session.agent)
         log.info(
-            "chat outcome=ok ms=%d tools=%s draft=%s tokens_in=%d tokens_out=%d stop=%s",
-            (time.monotonic() - started) * 1000, ",".join(tools_used), bool(session.pending_draft),
-            tokens_after[0] - tokens_before[0], tokens_after[1] - tokens_before[1],
-            getattr(result, "stop_reason", None),
+            "chat outcome=%s ms=%d tools=%s draft=%s tokens_in=%d tokens_out=%d stop=%s",
+            "blocked" if blocked else "ok", (time.monotonic() - started) * 1000, ",".join(tools_used),
+            bool(session.pending_draft), tokens_after[0] - tokens_before[0], tokens_after[1] - tokens_before[1], stop,
         )
         yield {"type": "done"}
 

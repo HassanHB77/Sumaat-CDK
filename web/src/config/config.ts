@@ -9,6 +9,8 @@ export type AppConfig = {
   userPoolClientId: string
   locationApiKey: string
   apiBase: string // "/api"
+  chatPath?: string // "/agent/chat" (AI chat, Step 9); absent = no chat button
+  chatDailyLimit?: number // messages per customer per business day
 }
 
 let current: AppConfig | null = null

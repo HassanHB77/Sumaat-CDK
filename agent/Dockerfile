@@ -16,4 +16,5 @@ RUN useradd --create-home --uid 1000 agent
 USER agent
 
 EXPOSE 8080
-CMD ["python", "-m", "agent.main"]
+# AWS OpenTelemetry (ADOT) sends traces to CloudWatch (GenAI Observability); settings are env vars on the runtime.
+CMD ["opentelemetry-instrument", "python", "-m", "agent.main"]

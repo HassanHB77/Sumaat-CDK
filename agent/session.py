@@ -42,6 +42,8 @@ def build_model():
     if os.environ.get("GUARDRAIL_ID"):
         config["guardrail_id"] = os.environ["GUARDRAIL_ID"]
         config["guardrail_version"] = os.environ.get("GUARDRAIL_VERSION", "DRAFT")
+        # Check the reply BEFORE each piece streams out, so blocked text never flashes on screen.
+        config["guardrail_stream_processing_mode"] = "sync"
     return BedrockModel(region_name=os.environ.get("AWS_REGION", "us-east-1"), **config)
 
 

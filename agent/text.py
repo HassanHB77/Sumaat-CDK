@@ -27,6 +27,30 @@ def reply_language(message: str, site_lang: object = None) -> str:
     return "Arabic" if site_lang == "ar" else "English"
 
 
+BLOCKED_MARKER = "[SUMAAT_BLOCKED]"  # the guardrail's blocked message (infra/agent_stack.py); never shown as text
+
+
+class MarkerFilter:
+    """Removes BLOCKED_MARKER from streamed text (also when split across chunks) and remembers that it was seen."""
+
+    def __init__(self) -> None:
+        self._buf = ""
+        self.seen = False
+
+    def feed(self, chunk: str) -> str:
+        self._buf += chunk
+        if BLOCKED_MARKER in self._buf:
+            self.seen = True
+            self._buf = self._buf.replace(BLOCKED_MARKER, "")
+        keep = _partial_suffix(self._buf, BLOCKED_MARKER)
+        out, self._buf = self._buf[: len(self._buf) - keep], self._buf[len(self._buf) - keep :]
+        return out
+
+    def flush(self) -> str:
+        rest, self._buf = self._buf, ""
+        return rest
+
+
 def _partial_suffix(text: str, tag: str) -> int:
     """Length of the longest end of `text` that is the start of `tag` (a tag that may continue next chunk)."""
     for n in range(min(len(tag) - 1, len(text)), 0, -1):

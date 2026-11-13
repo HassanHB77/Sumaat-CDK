@@ -232,3 +232,30 @@ def test_reply_uses_western_digits(agent_script):
     script[:] = [{"data": "السعر ١٥ ريال × ٢"}, {"result": None}]
     texts = [e["delta"] for e in chat({"message": "كم؟"}) if e["type"] == "text"]
     assert "".join(texts) == "السعر 15 ريال × 2"
+
+
+class _Result:
+    def __init__(self, stop_reason):
+        self.stop_reason = stop_reason
+
+
+def test_guardrail_marker_becomes_blocked_event(agent_script):
+    script, _ = agent_script
+    script[:] = [{"data": "[SUMAAT_"}, {"data": "BLOCKED]"}, {"result": _Result("guardrail_intervened")}]
+    events = chat({"message": "my card is 4111 1111 1111 1111"})
+    assert events == [{"type": "quota", "left": 9}, {"type": "blocked"}, {"type": "done"}]
+    assert chat_quota.peek(SARA) == 9  # a blocked message still counts
+
+
+def test_guardrail_stop_reason_alone_is_blocked_and_drops_draft(agent_script):
+    script, _ = agent_script
+    draft = lambda s: setattr(s, "pending_draft", {"restaurant": {}, "lines": [], "totalHalalas": 0})  # noqa: E731
+    script[:] = [draft, {"result": _Result("guardrail_intervened")}]
+    assert types(chat({"message": "x"})) == ["quota", "blocked", "done"]
+
+
+def test_guardrail_mode_is_sync(monkeypatch):
+    from agent import session as session_mod
+
+    monkeypatch.setenv("GUARDRAIL_ID", "gr-1")
+    assert session_mod.build_model().config["guardrail_stream_processing_mode"] == "sync"

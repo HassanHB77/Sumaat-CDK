@@ -5,6 +5,7 @@ from aws_cdk.assertions import Annotations, Match, Template
 from infra.agent_stack import RUNTIME_NAME, AgentStack
 from infra.auth_stack import AuthStack
 from infra.common import apply_project_guards
+from infra.data_stack import DataStack
 
 ENV = cdk.Environment(account="123456789012", region="us-east-1")
 
@@ -12,8 +13,11 @@ ENV = cdk.Environment(account="123456789012", region="us-east-1")
 @pytest.fixture(scope="module")
 def stack() -> AgentStack:
     app = cdk.App(context={"aws:cdk:bundling-stacks": []})
+    data = DataStack(app, "SumaatData", env=ENV)
     auth = AuthStack(app, "SumaatAuth", env=ENV)
-    agent = AgentStack(app, "SumaatAgent", user_pool=auth.user_pool, user_pool_client=auth.client, env=ENV)
+    agent = AgentStack(
+        app, "SumaatAgent", table=data.table, user_pool=auth.user_pool, user_pool_client=auth.client, env=ENV
+    )
     apply_project_guards(app)
     app.synth()
     return agent
@@ -75,3 +79,103 @@ def test_runtime_arn_output(template):
 def test_cdk_nag_clean(stack):
     errors = Annotations.from_stack(stack).find_error("*", Match.string_like_regexp("AwsSolutions-.*"))
     assert errors == [], errors
+
+
+# --- piece 3: model, guardrail, data access, tracing ---------------------------
+
+
+def _policy_statements(template) -> list[dict]:
+    out = []
+    for p in template.find_resources("AWS::IAM::Policy").values():
+        if any("RuntimeRole" in r["Ref"] for r in p["Properties"]["Roles"]):
+            out += p["Properties"]["PolicyDocument"]["Statement"]
+    return out
+
+
+def _stmt(template, action: str, resource_hint: str = "") -> dict:
+    for s in _policy_statements(template):
+        actions = s["Action"] if isinstance(s["Action"], list) else [s["Action"]]
+        if action in actions and resource_hint in str(s["Resource"]):
+            return s
+    raise AssertionError(f"no statement with {action} {resource_hint}")
+
+
+def test_runtime_env_and_lifecycle(template):
+    r = _runtime(template)
+    env = r["EnvironmentVariables"]
+    assert env["MODEL_ID"] == "us.amazon.nova-2-lite-v1:0"
+    assert env["CHAT_DAILY_LIMIT"] == "10"
+    assert "Fn::GetAtt" in env["GUARDRAIL_ID"] and "Fn::GetAtt" in env["GUARDRAIL_VERSION"]
+    assert env["OTEL_SEMCONV_STABILITY_OPT_IN"] == "gen_ai_unredacted_attributes="  # no message text in traces
+    assert env["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] == "false"
+    assert r["LifecycleConfiguration"] == {"IdleRuntimeSessionTimeout": 900}
+
+
+def test_guardrail_strict_standard_tier(template):
+    (g,) = template.find_resources("AWS::Bedrock::Guardrail").values()
+    p = g["Properties"]
+    filters = {f["Type"]: (f["InputStrength"], f["OutputStrength"]) for f in p["ContentPolicyConfig"]["FiltersConfig"]}
+    assert filters == {
+        "HATE": ("HIGH", "HIGH"), "INSULTS": ("HIGH", "HIGH"), "SEXUAL": ("HIGH", "HIGH"),
+        "VIOLENCE": ("HIGH", "HIGH"), "MISCONDUCT": ("HIGH", "HIGH"), "PROMPT_ATTACK": ("HIGH", "NONE"),
+    }
+    assert p["ContentPolicyConfig"]["ContentFiltersTierConfig"] == {"TierName": "STANDARD"}
+    assert p["TopicPolicyConfig"]["TopicsTierConfig"] == {"TierName": "STANDARD"}
+    assert "guardrail-profile/us.guardrail.v1:0" in str(p["CrossRegionConfig"])
+    assert {t["Name"] for t in p["TopicPolicyConfig"]["TopicsConfig"]} == {
+        "Medical-advice", "Politics-and-religion-debates", "Financial-and-legal-advice", "Other-food-apps"
+    }
+    assert all(t["Type"] == "DENY" for t in p["TopicPolicyConfig"]["TopicsConfig"])
+    assert p["WordPolicyConfig"]["ManagedWordListsConfig"] == [{"Type": "PROFANITY"}]
+    pii = {e["Type"]: e["Action"] for e in p["SensitiveInformationPolicyConfig"]["PiiEntitiesConfig"]}
+    assert pii == {"EMAIL": "ANONYMIZE", "PHONE": "ANONYMIZE", "CREDIT_DEBIT_CARD_NUMBER": "BLOCK",
+                   "CREDIT_DEBIT_CARD_CVV": "BLOCK", "CREDIT_DEBIT_CARD_EXPIRY": "BLOCK"}
+    (iban,) = p["SensitiveInformationPolicyConfig"]["RegexesConfig"]
+    assert iban["Action"] == "BLOCK"
+    assert p["BlockedInputMessaging"] == p["BlockedOutputsMessaging"] == "[SUMAAT_BLOCKED]"
+
+
+def test_guardrail_version_follows_settings(template):
+    from infra.guardrail import settings_fingerprint
+
+    (v,) = template.find_resources("AWS::Bedrock::GuardrailVersion").values()
+    assert v["Properties"]["Description"] == f"settings {settings_fingerprint()}"
+
+
+def test_topic_limits():
+    # Bedrock limits: definition <= 200 chars, <= 5 examples of <= 100 chars.
+    from infra.guardrail import DENIED_TOPICS
+
+    for name, (definition, examples) in DENIED_TOPICS.items():
+        assert len(definition) <= 200, name
+        assert len(examples) <= 5 and all(len(e) <= 100 for e in examples), name
+
+
+def test_model_access_is_nova_2_lite_only(template):
+    s = _stmt(template, "bedrock:InvokeModelWithResponseStream")
+    res = str(s["Resource"])
+    assert "inference-profile/us.amazon.nova-2-lite-v1:0" in res
+    for region in ("us-east-1", "us-east-2", "us-west-2"):
+        assert f"arn:aws:bedrock:{region}::foundation-model/amazon.nova-2-lite-v1:0" in res
+    assert "*" not in res
+
+
+def test_dynamodb_access_limited_by_partition_key(template):
+    reads = _stmt(template, "dynamodb:GetItem")
+    assert reads["Condition"] == {"ForAllValues:StringLike": {"dynamodb:LeadingKeys": ["RESTAURANT#*", "CONFIG", "CHATQUOTA#*"]}}
+    geo = _stmt(template, "dynamodb:Query", "/index/GSI1")
+    assert geo["Condition"] == {"ForAllValues:StringLike": {"dynamodb:LeadingKeys": ["GEO#*"]}}
+    write = _stmt(template, "dynamodb:UpdateItem")
+    assert write["Condition"] == {"ForAllValues:StringLike": {"dynamodb:LeadingKeys": ["CHATQUOTA#*"]}}
+    every = [a for s in _policy_statements(template) for a in (s["Action"] if isinstance(s["Action"], list) else [s["Action"]])]
+    for forbidden in ("dynamodb:PutItem", "dynamodb:DeleteItem", "dynamodb:Scan", "dynamodb:BatchGetItem", "dynamodb:*"):
+        assert forbidden not in every
+
+
+def test_metrics_limited_to_agentcore_namespace(template):
+    s = _stmt(template, "cloudwatch:PutMetricData")
+    assert s["Condition"] == {"StringEquals": {"cloudwatch:namespace": "bedrock-agentcore"}}
+
+
+def test_runtime_logs_kept_one_month(template):
+    template.has_resource_properties("Custom::LogRetention", {"RetentionInDays": 30})

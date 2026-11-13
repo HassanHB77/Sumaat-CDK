@@ -32,3 +32,22 @@ def test_text_streams_without_waiting_for_the_end():
     assert f.feed("Hello ") == "Hello "
     assert f.feed("<thi") == ""  # might be a tag: held back
     assert f.feed("s is text") == "<this is text"
+
+
+from agent.text import BLOCKED_MARKER, MarkerFilter  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "chunks, text, seen",
+    [
+        (["Hello"], "Hello", False),
+        ([BLOCKED_MARKER], "", True),
+        (["[SUMAAT_", "BLOCKED]"], "", True),
+        (["ok [", "x]"], "ok [x]", False),  # a '[' that turns out not to be the marker is kept
+        (["Hi " + BLOCKED_MARKER], "Hi ", True),
+    ],
+)
+def test_marker_filter(chunks, text, seen):
+    f = MarkerFilter()
+    out = "".join(f.feed(c) for c in chunks) + f.flush()
+    assert (out, f.seen) == (text, seen)

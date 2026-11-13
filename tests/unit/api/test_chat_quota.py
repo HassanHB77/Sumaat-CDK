@@ -79,3 +79,20 @@ def test_limit_from_environment(table, monkeypatch):
     assert chat_quota.use_one(SARA) == 0
     with pytest.raises(QuotaExceeded):
         chat_quota.use_one(SARA)
+
+
+# --- GET /me/chat-quota ------------------------------------------------------
+
+from api.handler import app  # noqa: E402
+from tests.unit.api.conftest import owner_claims, sara  # noqa: E402
+
+
+def test_quota_route_for_customer(table, make_client):
+    chat_quota.use_one(SARA)
+    r = make_client(app, sara()).get("/me/chat-quota")
+    assert r.status_code == 200 and r.json() == {"left": 9, "limit": 10}
+
+
+def test_quota_route_customers_only(table, make_client):
+    assert make_client(app, owner_claims()).get("/me/chat-quota").status_code == 403
+    assert make_client(app, None).get("/me/chat-quota").status_code == 401

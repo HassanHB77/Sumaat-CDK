@@ -21,6 +21,7 @@ lambda = [
 # What the AI agent container needs (Step 9; runs on Bedrock AgentCore Runtime).
 # After changing it: uv lock && uv export --only-group agent --no-hashes --no-emit-project -o agent/requirements.txt
 agent = [
+    "aws-opentelemetry-distro>=0.22.0",
     "bedrock-agentcore>=1.26.0",
     "fastapi>=0.120",  # api/services import api.auth (FastAPI); the agent reuses those services
     "strands-agents>=1.64.0",

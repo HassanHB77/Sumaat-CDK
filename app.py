@@ -18,7 +18,9 @@ env = cdk.Environment(account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=REGION)
 data = DataStack(app, "SumaatData", env=env)
 auth = AuthStack(app, "SumaatAuth", env=env)
 api = ApiStack(app, "SumaatApi", table=data.table, user_pool=auth.user_pool, env=env)
-agent = AgentStack(app, "SumaatAgent", user_pool=auth.user_pool, user_pool_client=auth.client, env=env)
+agent = AgentStack(
+    app, "SumaatAgent", table=data.table, user_pool=auth.user_pool, user_pool_client=auth.client, env=env
+)
 web = WebStack(
     app,
     "SumaatWeb",
