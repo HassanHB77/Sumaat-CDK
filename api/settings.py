@@ -14,6 +14,7 @@ class Settings:
     region: str
     allowed_origins: tuple[str, ...]  # CORS: which websites may call the API from a browser
     enable_docs: bool  # /docs, /redoc, /openapi.json (on locally, off on AWS)
+    images_bucket: str  # restaurant/dish photos (S3, served by CloudFront at /img/*)
 
 
 @lru_cache
@@ -25,4 +26,5 @@ def get_settings() -> Settings:
         region=os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION", "us-east-1"),
         allowed_origins=tuple(o.strip() for o in origins.split(",") if o.strip()),
         enable_docs=os.environ.get("ENABLE_DOCS", "1") == "1",
+        images_bucket=os.environ.get("IMAGES_BUCKET", "sumaat-images-local"),
     )

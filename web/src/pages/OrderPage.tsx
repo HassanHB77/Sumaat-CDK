@@ -84,6 +84,8 @@ export function OrderPage() {
   const label = formatOrderLabel(o.orderNumber, o.businessDate, lang)
   const restaurant = pickName({ name: o.restaurantName, nameAr: o.restaurantNameAr ?? '' }, lang)
   const reason = rejectReason(o)
+  // The order keeps its own names and prices; photos come from the restaurant's current menu (already loaded).
+  const photos = new Map((place.data?.menu ?? []).flatMap((m) => (m.imageUrl ? [[m.id, m.imageUrl] as const] : [])))
 
   return (
     <PageContainer>
@@ -126,7 +128,7 @@ export function OrderPage() {
         )}
 
         <div className="rounded-box bg-base-100 p-4 shadow-sm">
-          <OrderItems order={o} />
+          <OrderItems order={o} photos={photos} />
           {o.note && (
             <p className="mt-3 rounded-box bg-warning/20 p-2 text-sm">
               <span className="font-medium">{t('order.note')}:</span> {o.note}

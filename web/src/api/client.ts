@@ -71,7 +71,7 @@ export function configureApi(overrides: Partial<ApiDeps>): void {
 // --- the call ---------------------------------------------------------------------------
 
 export type ApiOptions = {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
   auth?: boolean
   signal?: AbortSignal

@@ -3,6 +3,8 @@
     Browser --https--> CloudFront (https://dxxxx.cloudfront.net)
                          |-- /api/*   --> API Gateway stage /prod   (no caching, Authorization passed through)
                          |-- /agent/* --> Bedrock AgentCore Runtime (AI chat, streamed; Step 9)
+                         |-- /img/*   --> private S3 photos bucket (restaurant + dish photos; owners upload
+                         |                straight to S3 with a presigned POST from the API)
                          '-- /*      --> private S3 bucket         (the React build, or a placeholder page)
 
 One address for site + API = no CORS in production, and the frontend calls the relative path "/api".
@@ -28,6 +30,7 @@ from cdk_nag import NagSuppressions
 from constructs import Construct
 
 from api.services.chat_quota import DEFAULT_LIMIT
+from infra.common import images_bucket_name
 
 ROOT = Path(__file__).resolve().parent.parent
 FUNCTIONS = Path(__file__).resolve().parent / "cf_functions"
@@ -113,6 +116,7 @@ class WebStack(Stack):
         )
 
         self._agent_behaviour(agent_runtime_arn)
+        self._images_behaviour()
 
         site_url = f"https://{self.distribution.distribution_domain_name}"
         map_key = self._map_key(site_url)
@@ -159,6 +163,41 @@ class WebStack(Stack):
         CfnOutput(self, "SiteUrl", value=site_url)
 
         self._suppress_nag()
+
+    def _images_behaviour(self) -> None:
+        """/img/* -> the photos bucket. Keys start with img/, so the address path IS the S3 key.
+
+        Every upload gets a new name, so photos are cached for a long time (CachingOptimized + the
+        Cache-Control the upload form sets). The API (SumaatApi) knows the bucket by its fixed name.
+        """
+        self.images_bucket = s3.Bucket(
+            self,
+            "ImagesBucket",
+            bucket_name=images_bucket_name(self),
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,  # only CloudFront reads; uploads are presigned
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            enforce_ssl=True,
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,  # POC: `cdk destroy` empties and removes it
+            # The browser POSTs the photo straight to S3. The presigned form (signed by the API for one key,
+            # JPEG only, max 3 MB, 5 minutes) is what authorises it; CORS only lets the page read S3's reply.
+            # "*" because the site's own address can't be named here (the distribution needs this bucket first).
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.POST],
+                    allowed_origins=["*"],
+                    allowed_headers=["*"],
+                    max_age=3000,
+                )
+            ],
+        )
+        self.distribution.add_behavior(
+            "/img/*",
+            origins.S3BucketOrigin.with_origin_access_control(self.images_bucket),
+            viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+            compress=False,  # JPEGs are already compressed
+        )
 
     def _agent_behaviour(self, runtime_arn: str) -> None:
         """/agent/chat -> the AgentCore Runtime endpoint, on the site's own address (no CORS).
@@ -238,8 +277,8 @@ class WebStack(Stack):
             [
                 {
                     "id": "AwsSolutions-S1",
-                    "reason": "POC: no S3 server access logs for the static site bucket; CloudFront and API "
-                    "Gateway metrics cover the demo.",
+                    "reason": "POC: no S3 server access logs for the static site bucket or the photos bucket; "
+                    "CloudFront and API Gateway metrics cover the demo.",
                 },
                 {
                     "id": "AwsSolutions-CFR1",
@@ -269,8 +308,8 @@ class WebStack(Stack):
                 },
                 {
                     "id": "AwsSolutions-IAM5",
-                    "reason": "CDK BucketDeployment helper needs wildcard object actions on the CDK asset bucket and "
-                    "on this site bucket only, plus a CloudFront invalidation.",
+                    "reason": "CDK BucketDeployment / auto-delete helpers need wildcard object actions on the CDK "
+                    "asset bucket and on this stack's site and photos buckets only, plus a CloudFront invalidation.",
                 },
                 {
                     "id": "AwsSolutions-L1",

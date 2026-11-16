@@ -102,6 +102,31 @@ export function updateMenuItem(restaurantId: string, itemId: string, body: Parti
   })
 }
 
+// --- owner: photos ---
+
+export type ImageUploadForm = { url: string; fields: Record<string, string>; key: string; maxBytes: number }
+
+const restaurantPath = (restaurantId: string) => `/restaurants/${encodeURIComponent(restaurantId)}`
+const photoPath = (restaurantId: string, itemId?: string) =>
+  itemId ? `${restaurantPath(restaurantId)}/menu/${encodeURIComponent(itemId)}/image` : `${restaurantPath(restaurantId)}/image`
+
+/** A short-lived form to upload ONE JPEG straight to S3 (the restaurant's photo, or a dish's with itemId). */
+export function getImageUploadForm(restaurantId: string, itemId?: string) {
+  return apiFetch<ImageUploadForm>(`${restaurantPath(restaurantId)}/image-upload`, {
+    method: 'POST',
+    auth: true,
+    body: itemId ? { itemId } : {},
+  })
+}
+
+export function attachImage<T extends Restaurant | MenuItem>(restaurantId: string, key: string, itemId?: string) {
+  return apiFetch<T>(photoPath(restaurantId, itemId), { method: 'PUT', auth: true, body: { key } })
+}
+
+export function removeImage<T extends Restaurant | MenuItem>(restaurantId: string, itemId?: string) {
+  return apiFetch<T>(photoPath(restaurantId, itemId), { method: 'DELETE', auth: true })
+}
+
 // --- owner: cashiers ---
 
 const cashiersPath = (restaurantId: string) => `/restaurants/${encodeURIComponent(restaurantId)}/cashiers`

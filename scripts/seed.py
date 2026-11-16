@@ -136,6 +136,27 @@ def ensure_user(cognito, pool_id: str, person: dict, password: str, group: str, 
     return next(a["Value"] for a in current if a["Name"] == "sub"), username
 
 
+def existing_images(table, rid: str) -> dict[str, str]:
+    """SK -> imageKey for this restaurant's rows that already have a photo (kept when re-seeding)."""
+    from boto3.dynamodb.conditions import Key
+
+    found: dict[str, str] = {}
+    kwargs = {
+        "KeyConditionExpression": Key("PK").eq(f"RESTAURANT#{rid}"),
+        "ProjectionExpression": "SK, imageKey",
+    }
+    while True:
+        page = table.query(**kwargs)
+        found.update({i["SK"]: i["imageKey"] for i in page["Items"] if i.get("imageKey")})
+        if "LastEvaluatedKey" not in page:
+            return found
+        kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+
+
+def _keep_image(item: dict, images: dict[str, str]) -> dict:
+    return {**item, "imageKey": images[item["SK"]]} if item["SK"] in images else item
+
+
 def seed(table, cognito=None, pool_id: str | None = None, password: str | None = None) -> dict:
     ts = now_iso()
     summary = {"restaurants": 0, "items": 0, "owners": [], "cashiers": [], "customers": []}
@@ -158,7 +179,8 @@ def seed(table, cognito=None, pool_id: str | None = None, password: str | None =
             )
             summary["owners"].append({"restaurant": r["name"], "email": r["owner"]["email"]})
 
-        table.put_item(Item=restaurant_item(r, owner_sub, ts))
+        images = existing_images(table, rid)  # photos added later (owner or gen_images.py) survive a re-seed
+        table.put_item(Item=_keep_image(restaurant_item(r, owner_sub, ts), images))
         if owner_sub:
             # Same one-restaurant-per-owner lock the API writes on POST /restaurants.
             table.put_item(Item={"PK": f"OWNER#{owner_sub}", "SK": "RESTAURANT", "type": "OWNER_LOCK",
@@ -167,7 +189,7 @@ def seed(table, cognito=None, pool_id: str | None = None, password: str | None =
 
         with table.batch_writer() as batch:
             for item in menu_items(r, ts):
-                batch.put_item(Item=item)
+                batch.put_item(Item=_keep_image(item, images))
                 summary["items"] += 1
 
         if cognito is not None:

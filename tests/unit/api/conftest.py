@@ -20,10 +20,10 @@ ISS = "https://cognito-idp.us-east-1.amazonaws.com/{}"
 def api_env(monkeypatch):
     monkeypatch.setenv("TABLE_NAME", "sumaat")
     monkeypatch.setenv("USER_POOL_ID", USER_POOL)
-    for cached in (get_settings, aws.table, aws.cognito):
+    for cached in (get_settings, aws.table, aws.cognito, aws.s3):
         cached.cache_clear()
     yield
-    for cached in (get_settings, aws.table, aws.cognito):
+    for cached in (get_settings, aws.table, aws.cognito, aws.s3):
         getattr(cached, "cache_clear", lambda: None)()  # a test may have monkeypatched it
 
 
@@ -89,7 +89,7 @@ def ddb(monkeypatch):
             cognito.admin_create_user(UserPoolId=pool_id, Username=username, MessageAction="SUPPRESS")
 
         monkeypatch.setenv("USER_POOL_ID", pool_id)
-        for cached in (get_settings, aws.table, aws.cognito):
+        for cached in (get_settings, aws.table, aws.cognito, aws.s3):
             cached.cache_clear()
         yield table, cognito, pool_id
 

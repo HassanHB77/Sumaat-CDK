@@ -3,6 +3,7 @@ import type { MessageKey } from '../i18n/en'
 import { useLanguage } from '../i18n/LanguageContext'
 import { formatMoney, formatTime, pickName } from '../lib/format'
 import { STEPS, stepIndex, timeOf } from '../lib/orders'
+import { Photo } from './Photo'
 
 export const statusKey = (s: OrderStatus) => `ostatus.${s}` as MessageKey
 
@@ -43,15 +44,16 @@ export function OrderStepper({ order }: { order: Order }) {
   )
 }
 
-/** qty × name ..... line total, then the total (VAT included). */
-export function OrderItems({ order }: { order: Order }) {
+/** qty × name ..... line total, then the total (VAT included). `photos`: itemId -> current dish photo, if known. */
+export function OrderItems({ order, photos }: { order: Order; photos?: Map<string, string> }) {
   const { t, lang } = useLanguage()
   return (
     <div className="flex flex-col gap-2">
       <ul className="divide-y divide-base-300">
         {order.items.map((l) => (
-          <li key={l.itemId} className="flex justify-between gap-3 py-2">
-            <span>
+          <li key={l.itemId} className="flex items-center gap-3 py-2">
+            <Photo src={photos?.get(l.itemId)} className="size-10" />
+            <span className="min-w-0 flex-1">
               <span dir="ltr" className="font-bold">
                 {l.qty} ×
               </span>{' '}

@@ -8,7 +8,14 @@ export const MAX_QTY = 20 // per dish, same as the API
 export const MAX_LINES = 20 // dishes per order, same as the API
 export const MAX_NOTE = 200
 
-export type CartLine = { itemId: string; name: string; nameAr: string; priceHalalas: number; qty: number }
+export type CartLine = {
+  itemId: string
+  name: string
+  nameAr: string
+  priceHalalas: number
+  qty: number
+  imageUrl?: string | null // dish photo (carts saved before photos existed don't have it)
+}
 
 export type Cart = {
   restaurantId: string
@@ -41,7 +48,14 @@ export function addItem(cart: Cart, restaurant: CartRestaurant, item: MenuItem):
   const existing = base.lines.find((l) => l.itemId === item.id)
   if (existing) return setQty(base, item.id, existing.qty + 1)
   if (base.lines.length >= MAX_LINES) return base
-  const line: CartLine = { itemId: item.id, name: item.name, nameAr: item.nameAr, priceHalalas: item.priceHalalas, qty: 1 }
+  const line: CartLine = {
+    itemId: item.id,
+    name: item.name,
+    nameAr: item.nameAr,
+    priceHalalas: item.priceHalalas,
+    qty: 1,
+    imageUrl: item.imageUrl ?? null,
+  }
   return { ...base, lines: [...base.lines, line] }
 }
 
@@ -60,12 +74,14 @@ export function setNote(cart: Cart, note: string): Cart {
 
 /**
  * Bring the cart in line with the latest menu of its restaurant: drop dishes that are gone or hidden,
- * update names and prices. `changed` tells the page to show "Your cart was updated".
+ * update names, prices and photos. `changed` tells the page to show "Your cart was updated" (a new photo alone
+ * updates the cart quietly).
  */
 export function reconcile(cart: Cart, restaurantId: string, menu: MenuItem[]): { cart: Cart; changed: boolean } {
   if (isEmpty(cart) || cart.restaurantId !== restaurantId) return { cart, changed: false }
   const byId = new Map(menu.map((m) => [m.id, m]))
   let changed = false
+  let photos = false
   const lines: CartLine[] = []
   for (const line of cart.lines) {
     const item = byId.get(line.itemId)
@@ -74,9 +90,12 @@ export function reconcile(cart: Cart, restaurantId: string, menu: MenuItem[]): {
       continue
     }
     if (item.priceHalalas !== line.priceHalalas) changed = true
-    lines.push({ ...line, name: item.name, nameAr: item.nameAr, priceHalalas: item.priceHalalas })
+    const imageUrl = item.imageUrl ?? null
+    if (imageUrl !== (line.imageUrl ?? null)) photos = true
+    lines.push({ ...line, name: item.name, nameAr: item.nameAr, priceHalalas: item.priceHalalas, imageUrl })
   }
-  if (!changed) return { cart, changed: false }
+  if (!changed && !photos) return { cart, changed: false }
+  if (!changed) return { cart: { ...cart, lines }, changed: false }
   return { cart: lines.length ? { ...cart, lines } : { ...EMPTY_CART }, changed: true }
 }
 
@@ -122,6 +141,8 @@ export function parseCart(raw: string | null): Cart {
         nameAr: String(l.nameAr ?? ''),
         priceHalalas: l.priceHalalas,
         qty: Math.min(l.qty, MAX_QTY),
+        // only our own photo addresses come back from storage
+        imageUrl: typeof l.imageUrl === 'string' && l.imageUrl.startsWith('/img/') ? l.imageUrl : null,
       }))
     if (!lines.length) return { ...EMPTY_CART }
     return {

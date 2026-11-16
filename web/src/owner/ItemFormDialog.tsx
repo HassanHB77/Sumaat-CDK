@@ -5,24 +5,29 @@ import { FormField } from '../components/FormParts'
 import { categoryLabel, dietLabel } from '../i18n/labels'
 import { useLanguage } from '../i18n/LanguageContext'
 import { halalasToSar, parseSar, validateItem, type Errors, type ItemValues } from './forms'
+import { PhotoField } from './PhotoField'
 
 /** Add or edit a dish. Bottom sheet on phones, centred dialog on larger screens. */
 export function ItemFormDialog({
   open,
+  restaurantId,
   item,
   defaultCategory,
   categories,
   busy,
   onCancel,
   onSave,
+  onPhotoChanged,
 }: {
   open: boolean
+  restaurantId: string
   item: MenuItem | null // null = new dish
   defaultCategory: string
   categories: string[]
   busy: boolean
   onCancel: () => void
   onSave: (values: MenuItemInput) => void
+  onPhotoChanged: (saved: MenuItem) => void // photos save on their own, not with the Save button
 }) {
   const { t } = useLanguage()
   const ref = useRef<HTMLDialogElement>(null)
@@ -79,6 +84,20 @@ export function ItemFormDialog({
     <dialog ref={ref} className="modal modal-bottom sm:modal-middle" onClose={onCancel}>
       <form onSubmit={submit} noValidate className="modal-box flex flex-col gap-1">
         <h3 className="text-lg font-bold">{item ? t('owner.menu.editTitle') : t('owner.menu.newTitle')}</h3>
+        <FormField label={t('photo.title')}>
+          {item ? (
+            <PhotoField<MenuItem>
+              key={item.id}
+              restaurantId={restaurantId}
+              itemId={item.id}
+              imageUrl={item.imageUrl}
+              hint={t('photo.dishHint')}
+              onChanged={onPhotoChanged}
+            />
+          ) : (
+            <p className="text-sm text-muted">{t('photo.saveFirst')}</p>
+          )}
+        </FormField>
         <div className="grid gap-x-3 sm:grid-cols-2">
           <FormField label={t('owner.item.name')} error={err('name')}>
             <input className="input w-full" dir="ltr" maxLength={80} value={v.name} onChange={(e) => set('name', e.target.value)} />

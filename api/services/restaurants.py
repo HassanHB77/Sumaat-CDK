@@ -20,6 +20,7 @@ from api.clock import now_iso
 from api.errors import Conflict, Forbidden, Invalid, NotFound
 from api.models import RestaurantCreate, RestaurantUpdate
 from api.services.ddb import set_expression
+from api.services.image_keys import with_image_url
 from api.services.staff import require_staff
 from api.settings import get_settings
 
@@ -43,8 +44,8 @@ def _geo_fields(lat: float, lng: float) -> dict:
 
 
 def with_status(item: dict) -> dict:
-    """Add the computed fields every restaurant response carries."""
-    return {**item, "isPaused": item.get("isPaused", False), "openNow": hours.open_now(item)}
+    """Add the computed fields every restaurant response carries (incl. the photo address)."""
+    return {**with_image_url(item), "isPaused": item.get("isPaused", False), "openNow": hours.open_now(item)}
 
 
 # --- reads (public) ----------------------------------------------------------
@@ -78,7 +79,9 @@ def get(rid: str) -> dict:
     profile = next((i for i in items if i["SK"] == "PROFILE"), None)
     if profile is None:
         raise NotFound("Restaurant not found")
-    menu = sorted((i for i in items if i["SK"].startswith("ITEM#")), key=lambda i: (i["category"], i["name"]))
+    menu = sorted(
+        (with_image_url(i) for i in items if i["SK"].startswith("ITEM#")), key=lambda i: (i["category"], i["name"])
+    )
     return {**with_status(profile), "menu": menu}
 
 

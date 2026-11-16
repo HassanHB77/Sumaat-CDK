@@ -152,6 +152,7 @@ class MenuItemOut(BaseModel):
     calories: int
     dietTags: list[str] = []
     isAvailable: bool
+    imageUrl: str | None = None  # "/img/..." on the site's own address; None = no photo
 
 
 class RestaurantOut(BaseModel):
@@ -168,6 +169,7 @@ class RestaurantOut(BaseModel):
     hours: str
     isPaused: bool = False  # staff pressed "Pause" (stop new orders now)
     openNow: bool  # taking orders right now: not paused AND inside hours (Riyadh time)
+    imageUrl: str | None = None  # "/img/..." on the site's own address; None = no photo
     createdAt: str
     updatedAt: str
 
@@ -265,3 +267,21 @@ class OrderOut(BaseModel):
 
 class RejectBody(_In):
     reason: Annotated[str, Field(max_length=200)] | None = None
+
+
+# --- photos (owner) ------------------------------------------------------------
+
+
+class ImageUploadIn(_In):
+    itemId: Annotated[str, Field(min_length=1, max_length=64)] | None = None  # None = the restaurant's own photo
+
+
+class ImageUploadOut(BaseModel):
+    url: str  # S3 address the browser POSTs the file to
+    fields: dict[str, str]  # form fields to send first (signature, key, content type ...), then the file
+    key: str  # send back in PUT .../image once the upload worked
+    maxBytes: int
+
+
+class ImageAttachIn(_In):
+    key: Annotated[str, Field(min_length=1, max_length=200)]

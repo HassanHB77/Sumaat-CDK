@@ -148,12 +148,14 @@ export function OwnerMenuPage() {
 
       <ItemFormDialog
         open={editing !== null}
+        restaurantId={restaurantId ?? ''}
         item={editing?.item ?? null}
         defaultCategory={editing?.category ?? ''}
         categories={order}
         busy={save.isPending}
         onCancel={() => setEditing(null)}
         onSave={(values) => editing && save.mutate({ item: editing.item, values })}
+        onPhotoChanged={(saved) => replaceItem(saved)}
       />
     </div>
   )

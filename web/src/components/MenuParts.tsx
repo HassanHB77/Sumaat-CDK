@@ -7,6 +7,7 @@ import { CuisineBadges } from './CuisineParts'
 import type { MenuSection } from '../lib/menu'
 import { LocationPreview } from './LocationPreview'
 import { HoursText, OpenStatusBadge } from './OpenStatusBadge'
+import { Photo } from './Photo'
 import { RestaurantIcon } from './RestaurantIcon'
 
 export const sectionId = (category: string) => `cat-${category.replace(/\W+/g, '-')}`
@@ -19,7 +20,12 @@ export function MenuHeader({ restaurant: r }: { restaurant: RestaurantDetail }) 
       <div className="flex flex-col sm:flex-row">
         <div className="flex min-w-0 flex-1">
           <div className="flex shrink-0 items-center ps-4">
-            <RestaurantIcon dimmed={!r.openNow} className="size-16" />
+            <Photo
+              src={r.imageUrl}
+              className="size-20 sm:size-24"
+              dimmed={!r.openNow}
+              fallback={<RestaurantIcon dimmed={!r.openNow} className="size-16" />}
+            />
           </div>
           {/* justify-center + grow-0: DaisyUI lets <p> grow inside card-body, which opened gaps next to the tall map. */}
           <div className="card-body min-w-0 justify-center gap-1 p-4">
@@ -152,8 +158,9 @@ export function DietBadges({ tags }: { tags: DietTag[] }) {
 export function MenuItemCard({ item, action }: { item: MenuItem; action?: ReactNode }) {
   const { lang } = useLanguage()
   return (
-    <article className="flex items-start justify-between gap-3 rounded-box bg-base-100 p-4 shadow-sm">
-      <div className="flex min-w-0 flex-col gap-1">
+    <article className="flex items-start gap-3 rounded-box bg-base-100 p-4 shadow-sm">
+      <Photo src={item.imageUrl} className="size-16 sm:size-20" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h3 className="font-medium">{pickName(item, lang)}</h3>
         <p className="text-sm text-muted" dir="ltr">
           {formatCalories(item.calories, lang)}

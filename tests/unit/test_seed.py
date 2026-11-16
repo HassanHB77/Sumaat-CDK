@@ -150,3 +150,21 @@ def test_rerun_keeps_one_record_per_cashier(env):
     seed(table, cognito, pool_id, PASSWORD)
     cashiers = [i for i in table.scan()["Items"] if i["SK"].startswith("CASHIER#")]
     assert len(cashiers) == len(RESTAURANTS)  # same sub -> same record, no duplicates
+
+
+def test_reseed_keeps_photos(env):
+    table, *_ = env
+    seed(table)
+    rid = stable_id("restaurant", RESTAURANTS[0]["slug"])
+    rows = table.query(KeyConditionExpression=Key("PK").eq(f"RESTAURANT#{rid}"))["Items"]
+    dish = next(i for i in rows if i["SK"].startswith("ITEM#"))
+    table.update_item(Key={"PK": f"RESTAURANT#{rid}", "SK": "PROFILE"}, UpdateExpression="SET imageKey = :k",
+                      ExpressionAttributeValues={":k": "img/r/x/a.jpg"})
+    table.update_item(Key={"PK": dish["PK"], "SK": dish["SK"]}, UpdateExpression="SET imageKey = :k",
+                      ExpressionAttributeValues={":k": "img/r/x/items/y/b.jpg"})
+
+    seed(table)
+
+    profile = table.get_item(Key={"PK": f"RESTAURANT#{rid}", "SK": "PROFILE"})["Item"]
+    assert profile["imageKey"] == "img/r/x/a.jpg"
+    assert table.get_item(Key={"PK": dish["PK"], "SK": dish["SK"]})["Item"]["imageKey"] == "img/r/x/items/y/b.jpg"

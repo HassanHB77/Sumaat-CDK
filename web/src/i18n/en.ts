@@ -389,6 +389,21 @@ export const en = {
   "chat.added": "Added to your cart ✓",
   "chat.viewCart": "View cart",
   "chat.disclaimer": "The assistant can make mistakes. Check your cart before ordering.",
+  "photo.title": "Photo",
+  "photo.restaurantHint": "Shown on your card in the restaurant list and on your menu page. A bright photo of your food or shop works best.",
+  "photo.dishHint": "Shown next to the dish on your menu.",
+  "photo.none": "No photo yet",
+  "photo.upload": "Upload photo",
+  "photo.replace": "Replace",
+  "photo.delete": "Delete",
+  "photo.deleteTitle": "Delete this photo?",
+  "photo.deleteBody": "Customers will see no photo until you upload a new one.",
+  "photo.saved": "Photo saved.",
+  "photo.deleted": "Photo deleted.",
+  "photo.err.notImage": "Please choose a photo (JPEG, PNG, HEIC …).",
+  "photo.err.tooBig": "This photo is too big (max 15 MB).",
+  "photo.err.failed": "Upload failed. Please try again.",
+  "photo.saveFirst": "Save the dish first, then add a photo.",
 } as const
 
 export type MessageKey = keyof typeof en

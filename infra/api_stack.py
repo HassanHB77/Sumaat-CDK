@@ -18,6 +18,8 @@ from aws_cdk import aws_logs as logs
 from cdk_nag import NagSuppressions
 from constructs import Construct
 
+from infra.common import images_bucket_name
+
 API_DIR = Path(__file__).resolve().parent.parent / "api"
 RUNTIME = lambda_.Runtime.PYTHON_3_14
 DEFAULT_ORIGINS = ["http://localhost:5173"]
@@ -56,6 +58,7 @@ class ApiStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         origins = self.node.try_get_context("corsOrigins") or DEFAULT_ORIGINS
+        images_bucket = images_bucket_name(self)
 
         # --- Lambda -------------------------------------------------------------
         fn = lambda_.Function(
@@ -80,6 +83,7 @@ class ApiStack(Stack):
                 "USER_POOL_ID": user_pool.user_pool_id,
                 "ALLOWED_ORIGINS": ",".join(origins),
                 "ENABLE_DOCS": "0",
+                "IMAGES_BUCKET": images_bucket,
             },
             log_group=logs.LogGroup(
                 self,
@@ -94,6 +98,14 @@ class ApiStack(Stack):
             iam.PolicyStatement(
                 actions=[f"cognito-idp:{a}" for a in COGNITO_ADMIN_ACTIONS],
                 resources=[user_pool.user_pool_arn],  # this pool only
+            )
+        )
+        # Photos: sign upload forms (PutObject), check an upload arrived (GetObject = HeadObject), delete
+        # replaced photos. Only under img/ in the photos bucket (created by SumaatWeb).
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+                resources=[f"arn:{self.partition}:s3:::{images_bucket}/img/*"],
             )
         )
 
@@ -217,6 +229,12 @@ class ApiStack(Stack):
                     "reason": "grant_read_write_data adds <table>/index/* so the API can query our own table's "
                     "GSIs (GEO lookup, order lists); no other tables.",
                     "appliesTo": [{"regex": "/^Resource::.*\\/index\\/\\*$/"}],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "Photos: object actions on img/* in our own photos bucket only (every upload gets a "
+                    "new server-made name, so the exact keys can't be listed in advance).",
+                    "appliesTo": [{"regex": "/^Resource::arn:.*:s3:::sumaat-images-.*\\/img\\/\\*$/"}],
                 },
                 {
                     "id": "AwsSolutions-L1",

@@ -66,8 +66,28 @@ def test_bucket_is_private_and_ssl_only(template):
     )
 
 
-def test_cloudfront_reads_bucket_with_oac(template):
-    template.resource_count_is("AWS::CloudFront::OriginAccessControl", 1)
+def test_cloudfront_reads_buckets_with_oac(template):
+    template.resource_count_is("AWS::CloudFront::OriginAccessControl", 2)  # site + photos
+
+
+def test_photos_bucket(template):
+    template.has_resource_properties(
+        "AWS::S3::Bucket",
+        {
+            "BucketName": "sumaat-images-123456789012-us-east-1",  # fixed: SumaatApi uses the same name
+            "PublicAccessBlockConfiguration": Match.object_like({"BlockPublicPolicy": True}),
+            "CorsConfiguration": {
+                "CorsRules": [Match.object_like({"AllowedMethods": ["POST"], "AllowedOrigins": ["*"]})]
+            },
+        },
+    )
+
+
+def test_photos_behaviour(template):
+    img = _behaviour(template, "/img/*")
+    assert img["ViewerProtocolPolicy"] == "redirect-to-https"
+    assert img["CachePolicyId"] == "658327ea-f89d-4fab-a63d-7e88639e58f6"  # Managed-CachingOptimized
+    assert "AllowedMethods" not in img  # CloudFront default = GET + HEAD only: read only
 
 
 def test_default_behavior_is_site(template):

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 
-from api.controllers import cashiers, chat, menu, orders, restaurants
+from api.controllers import cashiers, chat, images, menu, orders, restaurants
 from api.errors import ApiError
 from api.settings import get_settings
 
@@ -42,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(cashiers.router)
     app.include_router(orders.router)
     app.include_router(chat.router)
+    app.include_router(images.router)
     return app
 
 

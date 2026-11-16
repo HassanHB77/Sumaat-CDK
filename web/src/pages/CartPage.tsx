@@ -8,6 +8,7 @@ import { useCart } from '../cart/CartContext'
 import { MAX_NOTE, toOrderBody } from '../cart/cartLogic'
 import { QtyStepper } from '../components/CartParts'
 import { PageContainer } from '../components/PageContainer'
+import { Photo } from '../components/Photo'
 import { EmptyState } from '../components/States'
 import { useLanguage } from '../i18n/LanguageContext'
 import { usePageTitle } from '../lib/usePageTitle'
@@ -81,8 +82,9 @@ export function CartPage() {
 
         <ul className="flex flex-col gap-2">
           {cart.lines.map((l) => (
-            <li key={l.itemId} className="flex items-center justify-between gap-3 rounded-box bg-base-100 p-3 shadow-sm">
-              <div className="min-w-0">
+            <li key={l.itemId} className="flex items-center gap-3 rounded-box bg-base-100 p-3 shadow-sm">
+              <Photo src={l.imageUrl} className="size-12" />
+              <div className="min-w-0 flex-1">
                 <p className="font-medium">{pickName(l, lang)}</p>
                 <p className="text-sm text-muted" dir="ltr">
                   {formatMoney(l.priceHalalas * l.qty, lang)}

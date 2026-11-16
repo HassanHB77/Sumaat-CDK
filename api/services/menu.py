@@ -14,6 +14,7 @@ from api.errors import Invalid, NotFound
 from api.models import MenuItemCreate, MenuItemUpdate
 from api.services import categories
 from api.services.ddb import set_expression
+from api.services.image_keys import with_image_url
 from api.services.restaurants import load_owned
 
 
@@ -36,7 +37,7 @@ def create(owner: Principal, rid: str, data: MenuItemCreate) -> dict:
         "updatedAt": ts,
     }
     aws.table().put_item(Item=item, ConditionExpression="attribute_not_exists(PK)")
-    return item
+    return with_image_url(item)
 
 
 def update(owner: Principal, rid: str, item_id: str, data: MenuItemUpdate) -> dict:
@@ -59,4 +60,4 @@ def update(owner: Principal, rid: str, item_id: str, data: MenuItemUpdate) -> di
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             raise NotFound("Menu item not found") from e
         raise
-    return res["Attributes"]
+    return with_image_url(res["Attributes"])

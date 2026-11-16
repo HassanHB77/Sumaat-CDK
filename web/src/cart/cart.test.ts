@@ -181,3 +181,23 @@ describe('fromDraft (AI assistant draft -> cart)', () => {
     expect(fromDraft(existing, draft({ lines: [] }))).toBe(existing)
   })
 })
+
+describe('cart photos', () => {
+  it('a dish photo travels into the cart and survives a reload', () => {
+    const c = addItem(EMPTY_CART, NAKHLA, dish('a', 1000, { imageUrl: '/img/r/r1/items/a/x.jpg' }))
+    expect(c.lines[0].imageUrl).toBe('/img/r/r1/items/a/x.jpg')
+    expect(parseCart(JSON.stringify(c)).lines[0].imageUrl).toBe('/img/r/r1/items/a/x.jpg')
+  })
+
+  it('only our own photo addresses are read back from storage', () => {
+    const raw = JSON.stringify({ restaurantId: 'r1', lines: [{ itemId: 'a', qty: 1, priceHalalas: 100, imageUrl: 'https://evil.example/x.jpg' }] })
+    expect(parseCart(raw).lines[0].imageUrl).toBeNull()
+  })
+
+  it('reconcile picks up a new photo quietly (no "cart updated" note)', () => {
+    const c = addItem(EMPTY_CART, NAKHLA, dish('a'))
+    const res = reconcile(c, 'r1', [dish('a', 1000, { imageUrl: '/img/r/r1/items/a/new.jpg' })])
+    expect(res.changed).toBe(false)
+    expect(res.cart.lines[0].imageUrl).toBe('/img/r/r1/items/a/new.jpg')
+  })
+})

@@ -4,6 +4,7 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { formatKm, pickDescription, pickName } from '../lib/format'
 import { CuisineBadges } from './CuisineParts'
 import { HoursText, OpenStatusBadge } from './OpenStatusBadge'
+import { Photo } from './Photo'
 import { RestaurantIcon } from './RestaurantIcon'
 
 export function RestaurantCard({ restaurant: r }: { restaurant: NearbyRestaurant }) {
@@ -16,7 +17,7 @@ export function RestaurantCard({ restaurant: r }: { restaurant: NearbyRestaurant
       className={`card card-side bg-base-100 shadow-sm transition hover:shadow-md ${closed ? 'opacity-70' : ''}`}
     >
       <figure className="ps-4">
-        <RestaurantIcon dimmed={closed} />
+        <Photo src={r.imageUrl} className="size-20" dimmed={closed} fallback={<RestaurantIcon dimmed={closed} />} />
       </figure>
       <div className="card-body gap-1 p-4">
         <div className="flex flex-wrap items-center gap-2">

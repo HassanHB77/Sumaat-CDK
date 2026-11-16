@@ -28,6 +28,7 @@ export type Restaurant = {
   hours: string // "HH:MM-HH:MM", Riyadh time; may pass midnight ("13:00-01:00")
   isPaused: boolean
   openNow: boolean // computed by the API: inside hours AND not paused. Never compute it here.
+  imageUrl?: string | null // "/img/..." on the site's own address; null/missing = no photo
   createdAt: string
   updatedAt: string
 }
@@ -44,6 +45,7 @@ export type MenuItem = {
   calories: number
   dietTags: DietTag[]
   isAvailable: boolean
+  imageUrl?: string | null // "/img/..." on the site's own address; null/missing = no photo
 }
 
 export type RestaurantDetail = Restaurant & { menu: MenuItem[] }

@@ -6,6 +6,7 @@ import type { RestaurantDetail } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { restaurantKey, useStaff } from '../counter/StaffLayout'
 import { LocationPreview } from '../components/LocationPreview'
+import { PhotoField } from './PhotoField'
 import { ErrorState, LoadingState } from '../components/States'
 import { useToast } from '../components/Toast'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -113,6 +114,22 @@ export function RestaurantSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-4 text-2xl font-bold">{t('page.ownerRestaurant')}</h1>
+      <div className="card mb-4 bg-base-100 shadow-sm">
+        <div className="card-body gap-3">
+          <h2 className="card-title text-lg">{t('photo.title')}</h2>
+          <PhotoField<RestaurantDetail>
+            restaurantId={restaurantId}
+            imageUrl={restaurant.data.imageUrl}
+            hint={t('photo.restaurantHint')}
+            onChanged={(updated) => {
+              // Only the photo: keeping updatedAt as is stops the form below from resetting unsaved edits.
+              queryClient.setQueryData(restaurantKey(restaurantId), (old: RestaurantDetail | undefined) =>
+                old ? { ...old, imageUrl: updated.imageUrl } : old,
+              ) // same key as the customer menu page, so it shows the new photo too
+            }}
+          />
+        </div>
+      </div>
       <div className="card mb-4 bg-base-100 shadow-sm">
         <div className="card-body gap-3">
           <h2 className="card-title text-lg">{t('owner.location.title')}</h2>

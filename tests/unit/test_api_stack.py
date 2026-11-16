@@ -47,6 +47,7 @@ def test_lambda(template):
                     "USER_POOL_ID": Match.any_value(),
                     "ALLOWED_ORIGINS": "http://localhost:5173",
                     "ENABLE_DOCS": "0",
+                    "IMAGES_BUCKET": Match.any_value(),
                 }
             },
         },
@@ -160,6 +161,19 @@ def test_iam_least_privilege(template):
     # This pool's ARN only (imported from SumaatAuth), never a wildcard.
     assert "Fn::ImportValue" in str(cognito_stmt["Resource"]) and "*" not in str(cognito_stmt["Resource"])
     assert not any("cognito-idp:*" in str(s["Action"]) for s in statements)
+
+
+def test_photos_permissions_only_under_img(template):
+    statements = [
+        s
+        for p in template.find_resources("AWS::IAM::Policy").values()
+        for s in p["Properties"]["PolicyDocument"]["Statement"]
+    ]
+    (photos,) = [s for s in statements if "s3:PutObject" in str(s["Action"])]
+    assert sorted(photos["Action"]) == ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"]
+    resource = str(photos["Resource"])
+    assert "sumaat-images-123456789012-us-east-1/img/*" in resource
+    assert not any("s3:*" in str(s["Action"]) for s in statements)
 
 
 def test_api_url_output(template):
