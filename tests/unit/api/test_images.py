@@ -217,3 +217,17 @@ def test_keys_and_urls():
     assert not image_keys.belongs_to(d, "r1")
     assert image_keys.public_url({"imageKey": k}) == f"/{k}"
     assert image_keys.public_url({}) is None
+
+
+def test_attach_missing_upload_is_422_even_when_s3_says_403(setup, monkeypatch):
+    """Live S3 answers a missing key with 403 when the caller can't list the bucket (moto says 404)."""
+    from botocore.exceptions import ClientError
+
+    from api import aws
+
+    def forbidden(**_):
+        raise ClientError({"Error": {"Code": "403", "Message": "Forbidden"}}, "HeadObject")
+
+    monkeypatch.setattr(aws.s3(), "head_object", forbidden)
+    res = setup["owner"].put(f"/restaurants/{setup['rid']}/image", json={"key": image_keys.new_key(setup["rid"])})
+    assert res.status_code == 422

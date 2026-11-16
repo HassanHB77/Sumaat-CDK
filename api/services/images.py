@@ -63,7 +63,8 @@ def _check_uploaded(key: str) -> None:
     try:
         head = aws.s3().head_object(Bucket=get_settings().images_bucket, Key=key)
     except ClientError as e:
-        if e.response["Error"]["Code"] in ("404", "NoSuchKey", "NotFound"):
+        # Without s3:ListBucket (which the API doesn't need), S3 answers a missing key with 403, not 404.
+        if e.response["Error"]["Code"] in ("404", "NoSuchKey", "NotFound", "403", "AccessDenied", "Forbidden"):
             raise Invalid("Photo not found: upload it first") from e
         raise
     if head.get("ContentType") != image_keys.CONTENT_TYPE or head.get("ContentLength", 0) > image_keys.MAX_BYTES:
