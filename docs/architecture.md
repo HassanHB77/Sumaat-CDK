@@ -1,9 +1,9 @@
 # Sumaat — architecture
 
-*As built, Mon 16 Nov 2026.* Diagram source: [`sumaat-architecture-v4.drawio`](sumaat-architecture-v4.drawio)
+*As built, Mon 16 Nov 2026.* Diagram source: [`architecture-editable.drawio`](architecture-editable.drawio)
 (open in [diagrams.net](https://app.diagrams.net)).
 
-![Sumaat architecture](sumaat-architecture-v4.drawio.png)
+![Sumaat architecture](architecture.png)
 
 ## 1. Product
 
@@ -13,6 +13,12 @@
 - No delivery. Customers order ahead and **pay at the counter** (cash or card). Prices include 15% VAT.
 - Bilingual **English / Arabic** (full right-to-left layout), Western digits, Riyadh time.
 - Three roles, **one role per account**: **customer**, **owner**, **cashier**.
+- **Photos**: owners upload, replace and delete a restaurant photo and dish photos; customers see them on the
+  restaurant cards, the menu, the dish cards, the cart and the order page (a plate icon or text-only dish when there
+  is none).
+- **Location preview + Go**: a small view-only map of the restaurant (Amazon Location static map) with a **Go** button
+  that opens Google Maps directions (the app on phones). Shown on the menu page, the order page and the owner's
+  restaurant page.
 - **AI assistant (customers only)**: a chat panel that finds restaurants and dishes near the customer's map spot
   (cuisine, diet tags, calories, price, open now), replies in the customer's language and can **draft** a cart.
   The customer reviews it, adds it to the cart and places the order. 10 messages per customer per day.
@@ -26,7 +32,8 @@
 | **Sign-up / sign-in** | Browser → Cognito (email + password). **PreSignUp** Lambda refuses bad name/email/phone; **PostConfirmation** Lambda puts the user in their group and asks SES to verify new customers' emails (SES sandbox). |
 | **Pickup email** | Order status → `READY_FOR_PICKUP` → DynamoDB Stream (filtered to that change only) → **NotifyFn** → SES email (EN + AR). Exactly once (conditional write); failures go to an SQS dead-letter queue. |
 | **AI chat** | Browser → CloudFront `/agent/*` (a CloudFront Function rewrites to the runtime URL) → **Bedrock AgentCore Runtime**, which checks the Cognito access token itself → Strands agent (container image in **Amazon ECR**, built and pushed by CDK) → **Amazon Nova 2 Lite** with a **Bedrock Guardrail**. Tools read restaurants and menus from DynamoDB; replies stream back as server-sent events. |
-| **Maps** | Browser → Amazon Location Service (Maps v2) with an API key restricted to the site's address. |
+| **Photos** | Owner's browser shrinks the photo to a ~1200 px JPEG → `POST /api/restaurants/{id}/image-upload` returns a **presigned S3 POST** (one server-made key, JPEG only, ≤ 3 MB, valid 5 minutes) → the browser uploads **straight to the private photos bucket** (photo bytes never pass through Lambda) → `PUT …/image` checks the file is there and saves it on the restaurant or dish (the replaced file is deleted). Customers load photos from CloudFront `/img/*` (photos bucket via Origin Access Control, cached for a year: every upload gets a new name). |
+| **Maps** | Browser → Amazon Location Service (Maps v2) with an API key restricted to the site's address: map tiles for the interactive maps (browse, owner location picker) and **static map images** for the location preview. The **Go** button is a plain link to Google Maps directions. |
 
 ## 3. Business rules
 
@@ -37,17 +44,24 @@
 - **One open order per customer per restaurant** (released when served, rejected or cancelled).
 - **Prices always come from the database** — the client never sends prices.
 - **Opening hours are automatic** (Riyadh time, incl. past midnight and 24 h); owner or cashier can pause new orders.
-- **Menu items are never deleted**, only hidden (past orders keep their own copy of names and prices).
+- **Menu items are never deleted**, only hidden (past orders keep their own copy of names and prices). In the
+  owner's menu, hidden dishes sit at the bottom of their section.
 - Fixed lists: 21 menu categories (stored in the database, extendable without a deploy), 14 diet tags,
   14 cuisines (1–3 per restaurant). Restaurant descriptions in English and Arabic.
 - Near-me search: 1 / 3 / 4 km (the geohash grid guarantees 4.4 km).
 - **Input rules** are identical in the web forms, the API and the Cognito PreSignUp check (name, Saudi mobile
   `5XXXXXXXX` → `+9665XXXXXXXX`, email). The API trims all text input before validating.
+- **Order note** (optional, max 200): Arabic/English letters, digits (0-9 and ٠-٩), emoji, new lines and basic
+  punctuation only. The web warns and blocks ordering; the API refuses anything else with a 422.
+- **Photos**: JPEG, max 3 MB, one per restaurant and per dish. Orders don't store photos, so deleting one never
+  breaks an order (the order page shows the dish's current photo).
 
 ## 4. Data model (one DynamoDB table)
 
 - Restaurant profile, menu items, cashiers and daily order counters share the **restaurant's partition**, so one
   query loads a restaurant and its menu.
+- Profiles and menu items may carry an `imageKey` (the photo's S3 key). The API returns `imageUrl` (`/img/…` on the
+  site's own address), never the key itself.
 - Orders have their own items, with two indexes: a restaurant's orders by time, a customer's orders by time.
 - A **geohash index** powers "near me".
 - Small **lock items** enforce "one restaurant per owner" and "one open order per customer per restaurant".
@@ -61,11 +75,16 @@ AWS CDK (Python), 7 stacks deployed in order:
 |---|---|
 | **SumaatData** | DynamoDB table (on-demand, point-in-time recovery, stream on), 2 global secondary indexes |
 | **SumaatAuth** | Cognito user pool + web client, 3 groups, PreSignUp + PostConfirmation Lambdas |
-| **SumaatApi** | FastAPI on Lambda (Docker-bundled package), REST API Gateway, Cognito authorizer, throttling, access logs |
+| **SumaatApi** | FastAPI on Lambda (Docker-bundled package), REST API Gateway, Cognito authorizer, throttling, access logs; may put/get/delete objects only under `img/` in the photos bucket |
 | **SumaatAgent** | AgentCore Runtime (container from `agent/`, image in ECR via CDK assets, JWT authorizer), Bedrock Guardrail + version, least-privilege role, 1-month logs |
-| **SumaatWeb** | S3 + CloudFront (+ 2 CloudFront Functions), Amazon Location map key, generated `config.json` |
+| **SumaatWeb** | Site bucket + **photos bucket** (S3) + CloudFront (`/`, `/api/*`, `/agent/*`, `/img/*`; 3 CloudFront Functions), Amazon Location map key (tiles + static maps), generated `config.json` |
 | **SumaatNotify** | DynamoDB-stream email Lambda (filtered), SQS dead-letter queue |
 | **SumaatOps** | CloudWatch dashboard + 7 alarms |
+
+**Why does the photos bucket have a fixed name?** It lives in SumaatWeb (so CloudFront's Origin Access Control is
+scoped to our distribution), but SumaatApi is deployed earlier and needs it for permissions. A fixed name
+(`sumaat-images-<account>-<region>`) lets the API refer to it without a cross-stack reference, so there is no
+dependency loop.
 
 **Why a container for the agent?** AgentCore can run either a container image (ECR) or a zip in S3. The
 container keeps Python 3.14 like the rest of the app and packages the shared `api/` code exactly as tested;
@@ -76,9 +95,14 @@ CDK builds and pushes the image, and storage costs cents.
 - **Secure by default:** every API route needs a login except four public browse routes; API Gateway rejects bad
   tokens before any code runs. The API then checks the role and that staff belong to *that* restaurant (owner
   checked against the database; a disabled cashier is locked out immediately, even mid-session).
-- **Least-privilege IAM** per Lambda; Cognito admin actions limited to this user pool.
+- **Least-privilege IAM** per Lambda; Cognito admin actions limited to this user pool; the API may only
+  put/get/delete objects under `img/` in the photos bucket.
 - **Server-side input validation:** the PreSignUp Lambda checks every new account (website, scripts, cashiers
-  created by the API); the API returns a 422 naming the field.
+  created by the API); the API returns a 422 naming the field. The order note is checked by the API too.
+- **Photos:** only the restaurant's owner can upload, replace or delete. Photo names are made by the server; a photo
+  is saved only if its name belongs to that restaurant (or dish) and the file really is a JPEG of at most 3 MB. The
+  photos bucket is private (CloudFront reads it through Origin Access Control, HTTPS only); uploads need a short-lived
+  signed form from the API.
 - **Privacy:** logs never contain emails, phones, names, tokens or passwords. The customer's email is stored only
   for the pickup email and never returned by the API. The sender address is in SSM Parameter Store, not in code.
 - **AI safety:** Bedrock Guardrail (EN + AR): strict content filters, prompt-attack filter, profanity list,
@@ -87,7 +111,7 @@ CDK builds and pushes the image, and storage costs cents.
   restaurant/menu/config rows and update its own chat-quota rows — never orders or customers (verified with IAM
   policy simulation). The agent only drafts a cart; it never places orders. Traces contain no message text.
 - **cdk-nag (AWS Solutions rules)** runs on every stack at synth: **0 unsuppressed findings**. Each of the
-  28 suppressions has a written reason; the main ones:
+  30 suppressions (one per rule per stack) has a written reason; the main ones:
 
 | Rule(s) | Decision |
 |---|---|
@@ -95,8 +119,8 @@ CDK builds and pushes the image, and storage costs cents.
 | APIG4, COG4 (public routes) | Browsing restaurants/menus/categories and the health check need no login; CORS preflight can't carry a token. |
 | APIG2 (request validation) | Bodies are validated in the app by Pydantic (unknown fields rejected, strict integers for money). |
 | COG2, COG3, COG8 (MFA, threat protection) | POC uses the Cognito Essentials plan, email + password; revisit Plus/MFA for production. |
-| CFR1, CFR3, CFR4, S1 | No geo restriction (demo audience anywhere); no CloudFront/S3 access logs (API access logs + dashboard cover the demo); default CloudFront certificate until a custom domain is added. |
-| IAM4, IAM5, L1 | AWS-managed *logging-only* policies; wildcards only where AWS requires them or scoped to our own table indexes / SES identities / pool; Python 3.14 pinned project-wide; CDK-managed helper Lambdas. |
+| CFR1, CFR3, CFR4, S1 | No geo restriction (demo audience anywhere); no CloudFront/S3 access logs on the site and photos buckets (API access logs + dashboard cover the demo); default CloudFront certificate until a custom domain is added. |
+| IAM4, IAM5, L1 | AWS-managed *logging-only* policies; wildcards only where AWS requires them or scoped to our own table indexes / SES identities / pool / `img/*` in the photos bucket (photo names are new on every upload); Python 3.14 pinned project-wide; CDK-managed helper Lambdas. |
 | SQS3 | The queue *is* the dead-letter queue. |
 
 ## 7. Operations and cost
@@ -109,15 +133,18 @@ CDK builds and pushes the image, and storage costs cents.
   Missing data counts as OK.
 - All Lambdas and API access logs go to CloudWatch Logs, kept one month.
 - **Cost guards:** pay-per-request everywhere (DynamoDB on-demand, Lambda, API Gateway, CloudFront, AgentCore),
-  API throttling, map key restricted to the site, 10 AI messages per customer per day. Demo traffic costs cents.
+  API throttling, map key restricted to the site, 10 AI messages per customer per day. Photos are shrunk in the
+  browser before upload and served from CloudFront's cache. Demo traffic costs cents.
 
 ## 8. Quality
 
-- ~790 backend unit tests (pytest + moto) covering the API, Lambdas, agent, every CDK stack (incl. cdk-nag) and
-  a demo-data quality check; 178 frontend tests (Vitest).
-- A live smoke test calls every API route through CloudFront (112 checks), plus optional real AI replies.
+- 834 backend unit tests (pytest + moto) covering the API (incl. photos and the order-note rule), Lambdas, agent,
+  every CDK stack (incl. cdk-nag) and a demo-data quality check; 204 frontend tests (Vitest).
+- A live smoke test calls the API through CloudFront (112 checks), plus optional real AI replies. The photo routes
+  are not in it yet; they were tested live end to end (upload, show, replace, delete, wrong owner, missing file).
 
 ## 9. Not in the POC (parked)
 
 SMS notifications (Saudi sender-ID rules), estimated ready time, custom domain, WAF, SES production access,
-Cognito Plus/MFA, alarm notifications (SNS), AgentCore zip deployment instead of a container.
+Cognito Plus/MFA, alarm notifications (SNS), AgentCore zip deployment instead of a container, photo moderation
+(Amazon Rekognition), AI-generated demo photos (Amazon Nova Canvas v1 is retired; demo photos are uploaded by hand).
