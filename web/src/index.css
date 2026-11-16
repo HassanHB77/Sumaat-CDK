@@ -52,6 +52,19 @@ body {
   @apply bg-base-200 text-base-content font-sans antialiased;
 }
 
+/* Faint woven background (home page). Parent needs `relative isolate`; the weave sits behind content
+   at ~5% so text contrast is unchanged. Tile = the logo's weave (assets/weave.svg). */
+.bg-weave::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("./assets/weave.svg");
+  background-size: 96px 96px;
+  opacity: 0.05;
+}
+
 /* Primary buttons: white, bold, >= 17px for contrast on coral. */
 .btn-primary {
   @apply text-[17px] font-bold;
