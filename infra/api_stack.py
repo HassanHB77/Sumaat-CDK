@@ -88,6 +88,7 @@ class ApiStack(Stack):
                 removal_policy=RemovalPolicy.DESTROY,
             ),
         )
+        self.fn = fn  # for the SumaatOps dashboard
         table.grant_read_write_data(fn)
         fn.add_to_role_policy(
             iam.PolicyStatement(

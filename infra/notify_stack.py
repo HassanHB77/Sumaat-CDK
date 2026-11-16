@@ -71,6 +71,8 @@ class NotifyStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
+        self.fn, self.dlq = fn, dlq  # for the SumaatOps dashboard
+
         fn.add_event_source(
             sources.DynamoEventSource(
                 table,

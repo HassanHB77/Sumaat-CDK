@@ -9,6 +9,7 @@ from infra.common import REGION, apply_project_guards
 from infra.auth_stack import AuthStack
 from infra.data_stack import DataStack
 from infra.notify_stack import NotifyStack
+from infra.ops_stack import OpsStack
 from infra.web_stack import WebStack
 
 app = cdk.App()
@@ -31,6 +32,18 @@ web = WebStack(
     env=env,
 )
 notify = NotifyStack(app, "SumaatNotify", table=data.table, site_domain=web.distribution.distribution_domain_name, env=env)
+OpsStack(
+    app,
+    "SumaatOps",
+    api=api.api,
+    api_fn=api.fn,
+    notify_fn=notify.fn,
+    notify_dlq=notify.dlq,
+    auth_fns=auth.trigger_fns,
+    table=data.table,
+    agent_runtime_arn=agent.runtime_arn,
+    env=env,
+)  # dashboard + alarms (no notifications)
 
 apply_project_guards(app)  # project=sumaat tag + cdk-nag on everything
 app.synth()

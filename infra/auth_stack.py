@@ -123,6 +123,7 @@ class AuthStack(Stack):
             ),
         )
         self.user_pool.add_trigger(cognito.UserPoolOperation.PRE_SIGN_UP, pre_sign_up)
+        self.trigger_fns = [pre_sign_up, post_confirmation]  # for the SumaatOps dashboard
 
         # Separate Policy + wildcard pool ARN: referencing user_pool.user_pool_arn here
         # would create a pool <-> Lambda circular dependency.
