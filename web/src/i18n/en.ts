@@ -170,6 +170,10 @@ export const en = {
   'auth.err.code': "Enter the 6-digit code.",
 
   'common.cancel': "Cancel",
+  'common.go': "Go",
+  'common.goAria': "Directions to {name} in Google Maps",
+  'map.previewAlt': "Map showing where {name} is",
+  'owner.location.title': "Your location as customers see it",
   'cart.add': "Add",
   'cart.closedHint': "You can order when the restaurant is open.",
   'cart.view': "View cart",

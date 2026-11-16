@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ApiError } from '../api/client'
-import { cancelOrder, getOrder } from '../api/endpoints'
+import { cancelOrder, getOrder, getRestaurant } from '../api/endpoints'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { LocationPreview } from '../components/LocationPreview'
 import { OrderItems, OrderStatusBadge, OrderStepper } from '../components/OrderParts'
 import { PageContainer } from '../components/PageContainer'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
@@ -27,6 +28,15 @@ export function OrderPage() {
     queryFn: ({ signal }) => getOrder(orderId, signal),
     // Every 10 s until it's finished; TanStack pauses this while the tab is hidden.
     refetchInterval: (q) => (q.state.data && isFinal(q.state.data.status) ? false : LIVE_MS),
+  })
+
+  // Orders don't carry the restaurant's location: load it (shared cache with the menu page) for the map + "Go".
+  const restaurantId = order.data?.restaurantId
+  const place = useQuery({
+    queryKey: ['restaurant', restaurantId],
+    queryFn: ({ signal }) => getRestaurant(restaurantId!, signal),
+    enabled: !!restaurantId,
+    staleTime: 5 * 60_000,
   })
 
   const cancel = useMutation({
@@ -90,6 +100,10 @@ export function OrderPage() {
           </div>
           <OrderStatusBadge status={o.status} />
         </div>
+
+        {place.data && (
+          <LocationPreview lat={place.data.lat} lng={place.data.lng} name={restaurant} wide className="h-40 sm:h-48" />
+        )}
 
         {o.status === 'READY_FOR_PICKUP' && (
           <div role="status" className="alert alert-success text-lg font-bold">

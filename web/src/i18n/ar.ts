@@ -172,6 +172,10 @@ export const ar: Record<MessageKey, string> = {
   'auth.err.code': "أدخل الرمز المكوّن من 6 أرقام.",
 
   'common.cancel': "إلغاء",
+  'common.go': "اذهب",
+  'common.goAria': "الاتجاهات إلى {name} في خرائط Google",
+  'map.previewAlt': "خريطة توضح موقع {name}",
+  'owner.location.title': "موقعك كما يراه العملاء",
   'cart.add': "أضف",
   'cart.closedHint': "يمكنك الطلب عندما يكون المطعم مفتوحًا.",
   'cart.view': "عرض السلة",

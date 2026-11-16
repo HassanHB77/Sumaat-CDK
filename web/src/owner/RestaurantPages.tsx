@@ -5,9 +5,11 @@ import { createRestaurant, getRestaurant, updateRestaurant, type RestaurantInput
 import type { RestaurantDetail } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { restaurantKey, useStaff } from '../counter/StaffLayout'
+import { LocationPreview } from '../components/LocationPreview'
 import { ErrorState, LoadingState } from '../components/States'
 import { useToast } from '../components/Toast'
 import { useLanguage } from '../i18n/LanguageContext'
+import { pickName } from '../lib/format'
 import { DEFAULT_SPOT } from '../lib/geo'
 import { usePageTitle } from '../lib/usePageTitle'
 import { changedFields } from './forms'
@@ -82,7 +84,7 @@ export function OwnerSetupPage() {
 /** /owner/restaurant: edit details; only changed fields are sent. */
 export function RestaurantSettingsPage() {
   const { restaurantId } = useStaff()
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const toast = useToast()
   const queryClient = useQueryClient()
   usePageTitle(t('page.ownerRestaurant'))
@@ -111,6 +113,18 @@ export function RestaurantSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-4 text-2xl font-bold">{t('page.ownerRestaurant')}</h1>
+      <div className="card mb-4 bg-base-100 shadow-sm">
+        <div className="card-body gap-3">
+          <h2 className="card-title text-lg">{t('owner.location.title')}</h2>
+          <LocationPreview
+            lat={restaurant.data.lat}
+            lng={restaurant.data.lng}
+            name={pickName(restaurant.data, lang)}
+            wide
+            className="h-40 sm:h-48"
+          />
+        </div>
+      </div>
       <div className="card bg-base-100 shadow-sm">
         <div className="card-body">
           <RestaurantForm

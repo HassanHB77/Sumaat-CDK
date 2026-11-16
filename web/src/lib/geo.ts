@@ -83,3 +83,25 @@ export function circleRing(center: Point, km: number, steps = 64): [number, numb
   }
   return ring
 }
+
+/** Google's universal directions link: opens the Google Maps app on phones that have it, the website otherwise. */
+export function directionsUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)},${lng.toFixed(6)}`
+}
+
+/**
+ * Amazon Location static map (one picture, street style, labels in the page language), centred on the spot.
+ * Sizes are CSS pixels; "@2x" doubles them for sharp phones (the API allows at most 700 wide at @2x).
+ */
+export function staticMapUrl(lat: number, lng: number, lang: 'en' | 'ar', key: string, width: number, height: number): string {
+  const q = new URLSearchParams({
+    center: `${lng.toFixed(6)},${lat.toFixed(6)}`,
+    zoom: '16',
+    width: String(Math.min(width, 700)),
+    height: String(height),
+    style: 'Standard',
+    lang,
+    key,
+  })
+  return `https://maps.geo.us-east-1.amazonaws.com/v2/static/map@2x?${q}`
+}

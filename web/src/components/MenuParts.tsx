@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { formatCalories, formatMoney, pickDescription, pickName } from '../lib/format'
 import { CuisineBadges } from './CuisineParts'
 import type { MenuSection } from '../lib/menu'
+import { LocationPreview } from './LocationPreview'
 import { HoursText, OpenStatusBadge } from './OpenStatusBadge'
 import { RestaurantIcon } from './RestaurantIcon'
 
@@ -13,20 +14,29 @@ export const sectionId = (category: string) => `cat-${category.replace(/\W+/g, '
 export function MenuHeader({ restaurant: r }: { restaurant: RestaurantDetail }) {
   const { lang } = useLanguage()
   return (
-    <section className="card card-side bg-base-100 shadow-sm">
-      <figure className="ps-4">
-        <RestaurantIcon dimmed={!r.openNow} className="size-16" />
-      </figure>
-      <div className="card-body gap-1 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="card-title text-2xl">{pickName(r, lang)}</h1>
-          <OpenStatusBadge restaurant={r} />
+    <section className="card bg-base-100 shadow-sm">
+      {/* Phone: info, then the map under it. Wider screens: info beside the map, same card. */}
+      <div className="flex flex-col sm:flex-row">
+        <div className="flex min-w-0 flex-1">
+          <div className="flex shrink-0 items-center ps-4">
+            <RestaurantIcon dimmed={!r.openNow} className="size-16" />
+          </div>
+          {/* justify-center + grow-0: DaisyUI lets <p> grow inside card-body, which opened gaps next to the tall map. */}
+          <div className="card-body min-w-0 justify-center gap-1 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="card-title text-2xl">{pickName(r, lang)}</h1>
+              <OpenStatusBadge restaurant={r} />
+            </div>
+            <p className="grow-0 text-sm text-muted">
+              {r.district} · {r.city} · <HoursText hours={r.hours} />
+            </p>
+            <CuisineBadges cuisines={r.cuisines} />
+            {pickDescription(r, lang) && <p className="grow-0 text-sm">{pickDescription(r, lang)}</p>}
+          </div>
         </div>
-        <p className="text-sm text-muted">
-          {r.district} · {r.city} · <HoursText hours={r.hours} />
-        </p>
-        <CuisineBadges cuisines={r.cuisines} />
-        {pickDescription(r, lang) && <p className="text-sm">{pickDescription(r, lang)}</p>}
+        <div className="shrink-0 px-4 pb-4 sm:w-80 sm:p-3 sm:ps-0 lg:w-96">
+          <LocationPreview lat={r.lat} lng={r.lng} name={pickName(r, lang)} className="h-40 sm:h-full sm:min-h-40" />
+        </div>
       </div>
     </section>
   )
