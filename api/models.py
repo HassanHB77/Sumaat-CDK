@@ -8,7 +8,7 @@ from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
-from api.validation import check_person_name, check_saudi_mobile
+from api.validation import check_order_note, check_person_name, check_saudi_mobile
 
 # Fixed lists, mirrored in web/src/api/types.ts (a test keeps them identical). Labels live in the web i18n files.
 DietTag = Literal[
@@ -225,7 +225,7 @@ class OrderCreate(_In):
 
     restaurantId: Annotated[str, Field(min_length=1, max_length=64)]
     items: Annotated[list[OrderLineIn], Field(min_length=1, max_length=20), AfterValidator(_no_duplicate_items)]
-    note: Annotated[str, Field(max_length=200)] | None = None
+    note: Annotated[str, Field(max_length=200), AfterValidator(check_order_note)] | None = None  # see api/validation.py
 
 
 class OrderLine(BaseModel):

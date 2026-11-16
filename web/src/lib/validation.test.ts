@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { cognitoErrorKey } from '../auth/cognitoErrors'
 import { cleanMobileInput } from './phone'
-import { isValidPersonName, validatePerson } from './validation'
+import { isValidOrderNote, isValidPersonName, validatePerson } from './validation'
 
 // Same examples as tests/unit/functions/test_pre_sign_up.py (server rules), so both sides agree.
 const GOOD_NAMES = [
@@ -81,5 +81,20 @@ describe('cognitoErrorKey: pre sign-up refusals', () => {
     ['PreSignUp failed with error something else.', 'auth.err.generic'],
   ])('%s -> %s', (message, key) =>
     expect(cognitoErrorKey({ name: 'UserLambdaValidationException', message })).toBe(key),
+  )
+})
+
+// Same examples as tests/unit/api/test_orders.py (the API refuses the same notes).
+describe('isValidOrderNote', () => {
+  it.each([
+    'No onions, please. Pickup at 8:30!',
+    'بدون بصل، شكرًا 🙏',
+    '٣ ملاعق سكر',
+    'Line one\nLine two',
+    'He said "extra hot" (1/2) — ok? ؟',
+    '',
+  ])('%s is allowed', (n) => expect(isValidOrderNote(n)).toBe(true))
+  it.each(['<script>', 'me@home', '#1', '50%', '{x}', 'a\tb', '你好', 'привет', 'a\\b'])('%s is refused', (n) =>
+    expect(isValidOrderNote(n)).toBe(false),
   )
 })

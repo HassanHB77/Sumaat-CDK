@@ -5,7 +5,8 @@ export type MenuSection = { category: string; items: MenuItem[] }
 /**
  * Customer menu: hide unavailable items, keep items that have ALL selected diet tags, group by category in the
  * API's menu order (/categories), skip empty categories. Categories not in the list (e.g. added later) go last, A-Z.
- * Items inside a category keep a stable A-Z order by English name.
+ * Items inside a category keep a stable A-Z order by English name; with includeHidden (owner view), hidden items
+ * go to the bottom of their category.
  */
 export function groupMenu(
   items: MenuItem[],
@@ -26,7 +27,7 @@ export function groupMenu(
   const unknown = [...byCategory.keys()].filter((c) => !categoryOrder.includes(c)).sort()
   return [...known, ...unknown].map((category) => ({
     category,
-    items: byCategory.get(category)!.sort((a, b) => a.name.localeCompare(b.name)),
+    items: byCategory.get(category)!.sort((a, b) => Number(b.isAvailable) - Number(a.isAvailable) || a.name.localeCompare(b.name)),
   }))
 }
 

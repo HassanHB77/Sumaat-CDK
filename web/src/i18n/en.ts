@@ -183,6 +183,7 @@ export const en = {
   'cart.from': "From {name}",
   'cart.note': "Note for the restaurant (optional)",
   'cart.notePlaceholder': "e.g. no onions, extra lemon",
+  "cart.noteInvalid": "Use only Arabic or English letters, numbers, emoji and basic punctuation (. , ! ? - ' \" ( ) : /).",
   'cart.total': "Total (incl. 15% VAT)",
   'cart.pickupNotice': "Pickup only · Pay at the counter (cash or card)",
   'cart.place': "Place order",

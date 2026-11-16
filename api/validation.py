@@ -1,4 +1,4 @@
-"""Rules for a person's name, email and Saudi mobile (customers, owners, cashiers).
+"""Rules for a person's name, email and Saudi mobile (customers, owners, cashiers), and for the order note.
 
 The SAME rules live in three places, kept identical on purpose:
 - here (API: cashiers created by an owner),
@@ -25,6 +25,14 @@ NAME_MAX = 80
 
 EMAIL_RE = re.compile(r"^[^@\s,;<>()\[\]]+@[^@\s,;<>()\[\]]+\.[A-Za-z]{2,}$")
 SAUDI_MOBILE_RE = re.compile(r"^\+9665\d{8}$")  # E.164, as Cognito stores it
+
+# Order note (cart): letters (English/Arabic), digits 0-9 and Arabic-Indic ٠-٩, emoji, spaces, new lines and basic
+# punctuation. Tabs, other control characters, symbols like < > @ # % { } and other scripts are refused.
+NOTE_MAX = 200
+_ARABIC_DIGITS = "\u0660-\u0669"
+_NOTE_PUNCTUATION = ".,!?\\-'\"():/\u2019\u060c\u061b\u061f\u2014"  # . , ! ? - ' " ( ) : / ’ ، ؛ ؟ —
+_NOTE_RE = re.compile(f"^[A-Za-z0-9{_ARABIC}{_ARABIC_DIGITS}{_EMOJI}{_NOTE_PUNCTUATION} \n]*$")
+NOTE_MESSAGE = "Note may only contain Arabic or English letters, numbers, emoji and basic punctuation"
 
 NAME_MESSAGE = "Name may only contain Arabic or English letters, spaces, - ' . and emoji (no numbers or symbols)"
 PHONE_MESSAGE = "Phone must be a Saudi mobile number in the form +9665XXXXXXXX"
@@ -55,4 +63,15 @@ def check_person_name(value: str) -> str:
 def check_saudi_mobile(value: str) -> str:
     if not is_saudi_mobile(value):
         raise ValueError(PHONE_MESSAGE)
+    return value
+
+
+def is_order_note(value: str) -> bool:
+    return len(value or "") <= NOTE_MAX and bool(_NOTE_RE.fullmatch(value or ""))
+
+
+def check_order_note(value: str) -> str:
+    """Pydantic AfterValidator for OrderCreate.note (text is already trimmed by the model)."""
+    if not is_order_note(value):
+        raise ValueError(NOTE_MESSAGE)
     return value

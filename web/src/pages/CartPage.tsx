@@ -14,6 +14,7 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { usePageTitle } from '../lib/usePageTitle'
 import { formatMoney, pickName } from '../lib/format'
 import { findOpenOrderAt } from '../lib/orders'
+import { isValidOrderNote } from '../lib/validation'
 
 type Problem = { text: string; orderId?: string } | null
 
@@ -66,6 +67,7 @@ export function CartPage() {
   }
 
   const restaurantName = pickName({ name: cart.restaurantName, nameAr: cart.restaurantNameAr }, lang)
+  const noteOk = isValidOrderNote(cart.note.trim()) // same rule as the API (trimmed there too)
 
   function onPlace() {
     setProblem(null)
@@ -103,13 +105,20 @@ export function CartPage() {
         <label className="fieldset">
           <span className="fieldset-legend">{t('cart.note')}</span>
           <textarea
-            className="textarea w-full"
+            className={`textarea w-full ${noteOk ? '' : 'textarea-error'}`}
             rows={2}
             maxLength={MAX_NOTE}
             placeholder={t('cart.notePlaceholder')}
             value={cart.note}
             onChange={(e) => setNote(e.target.value)}
+            aria-invalid={!noteOk}
+            aria-describedby={noteOk ? undefined : 'note-error'}
           />
+          {!noteOk && (
+            <span id="note-error" role="alert" className="label whitespace-normal text-error">
+              {t('cart.noteInvalid')}
+            </span>
+          )}
           <span className="label justify-end" dir="ltr">
             {cart.note.length}/{MAX_NOTE}
           </span>
@@ -132,7 +141,7 @@ export function CartPage() {
           </div>
         )}
 
-        <button type="button" className="btn btn-primary btn-lg" onClick={onPlace} disabled={place.isPending}>
+        <button type="button" className="btn btn-primary btn-lg" onClick={onPlace} disabled={place.isPending || !noteOk}>
           {place.isPending && <span className="loading loading-spinner" />}
           {status === 'signedIn' ? t('cart.place') : t('cart.loginToOrder')}
         </button>

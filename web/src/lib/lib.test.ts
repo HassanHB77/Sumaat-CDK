@@ -90,6 +90,17 @@ describe('menu', () => {
     expect(groupMenu(items, order, [], { includeHidden: true }).map((s) => s.category)).toContain('Sides')
   })
 
+  it('owner view puts hidden dishes at the bottom of their section (each part A-Z)', () => {
+    const mains = [
+      item({ name: 'Apple Salad', isAvailable: false }),
+      item({ name: 'Zaatar Bread' }),
+      item({ name: 'Kabsa' }),
+      item({ name: 'Bamia', isAvailable: false }),
+    ]
+    const [section] = groupMenu(mains, order, [], { includeHidden: true })
+    expect(section.items.map((i) => i.name)).toEqual(['Kabsa', 'Zaatar Bread', 'Apple Salad', 'Bamia'])
+  })
+
   it('diet filter needs ALL selected tags', () => {
     const sections = groupMenu(items, order, ['gluten_free', 'high_protein'])
     expect(sections.flatMap((s) => s.items.map((i) => i.name))).toEqual(['Kabsa'])

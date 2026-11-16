@@ -1,3 +1,4 @@
+import { MAX_NOTE } from '../cart/cartLogic'
 import type { MessageKey } from '../i18n/en'
 import { isStrongPassword } from './password'
 import { isValidSaudiMobile } from './phone'
@@ -23,6 +24,14 @@ export function isValidPersonName(value: string): boolean {
   const v = value.trim()
   const length = [...v].length // code points, like Python's len()
   return length > 0 && length <= NAME_MAX && NAME_RE.test(v) && LETTER_RE.test(v)
+}
+
+// Cart note: SAME rule as api/validation.py (is_order_note). Letters (English/Arabic), 0-9 and ٠-٩, emoji, spaces,
+// new lines and basic punctuation . , ! ? - ' " ( ) : / ’ ، ؛ ؟ —
+const NOTE_RE = new RegExp(`^[A-Za-z0-9${ARABIC}\u0660-\u0669${EMOJI}.,!?\\-'"():/\u2019\u060c\u061b\u061f\u2014 \n]*$`, 'u')
+/** True if the order note only has allowed characters (an empty note is fine). */
+export function isValidOrderNote(value: string): boolean {
+  return [...value].length <= MAX_NOTE && NOTE_RE.test(value)
 }
 
 /** name@domain.tld; no spaces, commas, semicolons or brackets. Same rule as the API. */

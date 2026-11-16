@@ -107,6 +107,29 @@ def test_validation(shop, customer, change):
     assert customer.post("/orders", json={**order_body(shop), **change}).status_code == 422
 
 
+@pytest.mark.parametrize(
+    "note",
+    [
+        "No onions, please. Pickup at 8:30!",
+        "بدون بصل، شكرًا 🙏",
+        "٣ ملاعق سكر",
+        "Line one\nLine two",
+        'He said "extra hot" (1/2) — ok? ؟',
+    ],
+)
+def test_note_accepts_letters_numbers_emoji_punctuation(shop, customer, note):
+    r = customer.post("/orders", json=order_body(shop, note=note))
+    assert r.status_code == 201, r.text
+    assert r.json()["note"] == note
+
+
+@pytest.mark.parametrize("note", ["<script>", "me@home", "#1", "50%", "{x}", "a\tb", "你好", "привет", "a\\b"])
+def test_note_refuses_other_characters(shop, customer, note):
+    r = customer.post("/orders", json=order_body(shop, note=note))
+    assert r.status_code == 422
+    assert "note" in r.text and "punctuation" in r.text
+
+
 def test_unknown_item_is_422(shop, customer):
     r = customer.post("/orders", json={"restaurantId": shop["rid"], "items": [{"itemId": "ghost", "qty": 1}]})
     assert r.status_code == 422
