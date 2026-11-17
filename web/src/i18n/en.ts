@@ -431,6 +431,22 @@ export const en = {
   "owner.stats.chartTip": "{day}: {amount} · {n} orders",
   "owner.stats.today": "Today",
   "owner.stats.day": "Day",
+  "chat.owner.title": "Sumaat Assistant · Owner",
+  "chat.owner.hello": "Hi! Ask me about your restaurant's orders, sales, dishes and preparation time — today, this week or this month.",
+  "chat.owner.placeholder": "Ask about your orders and sales…",
+  "chat.owner.disclaimer": "Numbers come from your orders (sales = served orders). The assistant can make mistakes.",
+  "chat.owner.chip1": "How many orders this week?",
+  "chat.owner.chip2": "Best sellers this month?",
+  "chat.owner.chip3": "Average prep time this week?",
+  "chat.owner.chip4": "When are we busiest?",
+  "chat.owner.chip5": "Sales vs last week?",
+  "chat.tool.order_summary": "Counting orders…",
+  "chat.tool.dish_sales": "Checking dish sales…",
+  "chat.tool.best_sellers": "Finding best sellers…",
+  "chat.tool.prep_time": "Measuring prep time…",
+  "chat.tool.busiest_times": "Finding busy times…",
+  "chat.tool.rejections": "Checking rejections…",
+  "chat.err.not_owner": "Set up your restaurant first, then ask me about its numbers.",
 } as const
 
 export type MessageKey = keyof typeof en

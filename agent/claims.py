@@ -19,6 +19,10 @@ class Caller:
     def is_customer(self) -> bool:
         return "customer" in self.groups
 
+    @property
+    def is_owner(self) -> bool:
+        return "owner" in self.groups
+
 
 def _payload(token: str) -> dict:
     try:

@@ -3,21 +3,44 @@ import { Link, useLocation } from 'react-router'
 import type { MessageKey } from '../i18n/en'
 import { useLanguage } from '../i18n/LanguageContext'
 import { DraftCard } from './DraftCard'
-import { MAX_MESSAGE, type ChatMessage, type ChatState } from './chatState'
+import { MAX_MESSAGE, type ChatMessage, type ChatMode, type ChatState } from './chatState'
 
-const CHIPS: MessageKey[] = ['chat.chip1', 'chat.chip2', 'chat.chip3']
+/** What differs between the customer's food finder and the owner's numbers assistant. */
+const COPY: Record<ChatMode, { title: MessageKey; hello: MessageKey; placeholder: MessageKey; disclaimer: MessageKey; chips: MessageKey[] }> = {
+  customer: {
+    title: 'chat.title',
+    hello: 'chat.hello',
+    placeholder: 'chat.placeholder',
+    disclaimer: 'chat.disclaimer',
+    chips: ['chat.chip1', 'chat.chip2', 'chat.chip3'],
+  },
+  owner: {
+    title: 'chat.owner.title',
+    hello: 'chat.owner.hello',
+    placeholder: 'chat.owner.placeholder',
+    disclaimer: 'chat.owner.disclaimer',
+    chips: ['chat.owner.chip1', 'chat.owner.chip2', 'chat.owner.chip3', 'chat.owner.chip4', 'chat.owner.chip5'],
+  },
+}
 const TOOL_LABELS: Record<string, MessageKey> = {
   find_restaurants: 'chat.tool.find_restaurants',
   search_dishes: 'chat.tool.search_dishes',
   get_menu: 'chat.tool.get_menu',
   list_categories: 'chat.tool.list_categories',
   draft_cart: 'chat.tool.draft_cart',
+  order_summary: 'chat.tool.order_summary',
+  dish_sales: 'chat.tool.dish_sales',
+  best_sellers: 'chat.tool.best_sellers',
+  prep_time: 'chat.tool.prep_time',
+  busiest_times: 'chat.tool.busiest_times',
+  rejections: 'chat.tool.rejections',
 }
 
 type Props = {
   open: boolean
   onClose: () => void
-  signedInCustomer: boolean
+  mode: ChatMode
+  canChat: boolean // signed in with an account that has this assistant
   state: ChatState
   limit: number
   onSend: (text: string) => void
@@ -28,8 +51,9 @@ type Props = {
 /** Bottom sheet on phones, side panel on larger screens (native <dialog>: Esc and the backdrop close it).
  *  `sm:[translate:0]`: DaisyUI's RTL rule for modal-end (translate -100%) outranks its "open" rule, so in Arabic
  *  the panel stayed off-screen and only the dimmed backdrop showed. Pinning it in place fixes that (it fades in). */
-export function ChatPanel({ open, onClose, signedInCustomer, state, limit, onSend, onNew, onDraftAdded }: Props) {
+export function ChatPanel({ open, onClose, mode, canChat: signedIn, state, limit, onSend, onNew, onDraftAdded }: Props) {
   const { t } = useLanguage()
+  const copy = COPY[mode]
   const dialogRef = useRef<HTMLDialogElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -49,7 +73,7 @@ export function ChatPanel({ open, onClose, signedInCustomer, state, limit, onSen
   }, [state.messages, open])
 
   const outOfMessages = state.left === 0
-  const canSend = signedInCustomer && !state.sending && !outOfMessages
+  const canSend = signedIn && !state.sending && !outOfMessages
   const submit = (text: string) => {
     if (!canSend || !text.trim()) return
     onSend(text.slice(0, MAX_MESSAGE))
@@ -58,13 +82,13 @@ export function ChatPanel({ open, onClose, signedInCustomer, state, limit, onSen
   }
 
   return (
-    <dialog ref={dialogRef} className="modal modal-bottom sm:modal-end" onClose={onClose} aria-label={t('chat.title')}>
+    <dialog ref={dialogRef} className="modal modal-bottom sm:modal-end" onClose={onClose} aria-label={t(copy.title)}>
       <div className="modal-box flex h-[85dvh] max-h-none flex-col gap-0 p-0 sm:h-dvh sm:w-full sm:max-w-md sm:rounded-none sm:[translate:0]">
         {/* Header */}
         <div className="bg-secondary text-secondary-content flex items-center gap-2 px-4 py-3">
           <div className="flex-1">
-            <h2 className="font-bold">{t('chat.title')}</h2>
-            {signedInCustomer && (
+            <h2 className="font-bold">{t(copy.title)}</h2>
+            {signedIn && (
               <span
                 className={`badge badge-sm ${state.left !== null && state.left <= 2 ? 'badge-error' : 'badge-ghost'}`}
                 aria-live="polite"
@@ -73,7 +97,7 @@ export function ChatPanel({ open, onClose, signedInCustomer, state, limit, onSen
               </span>
             )}
           </div>
-          {signedInCustomer && state.messages.length > 0 && (
+          {signedIn && state.messages.length > 0 && (
             <button type="button" className="btn btn-sm btn-outline border-secondary-content/40 text-secondary-content" onClick={onNew}>
               {t('chat.new')}
             </button>
@@ -85,7 +109,7 @@ export function ChatPanel({ open, onClose, signedInCustomer, state, limit, onSen
 
         {/* Messages */}
         <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3">
-          {!signedInCustomer ? (
+          {!signedIn ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
               <p>{t('chat.loginNeeded')}</p>
               <Link
@@ -99,11 +123,11 @@ export function ChatPanel({ open, onClose, signedInCustomer, state, limit, onSen
           ) : (
             <>
               <div className="chat chat-start">
-                <div className="chat-bubble">{t('chat.hello')}</div>
+                <div className="chat-bubble">{t(copy.hello)}</div>
               </div>
               {state.messages.length === 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {CHIPS.map((key) => (
+                  {copy.chips.map((key) => (
                     <button key={key} type="button" className="btn btn-sm btn-outline btn-primary" disabled={!canSend} onClick={() => submit(t(key))}>
                       {t(key)}
                     </button>
@@ -118,7 +142,7 @@ export function ChatPanel({ open, onClose, signedInCustomer, state, limit, onSen
         </div>
 
         {/* Input */}
-        {signedInCustomer && (
+        {signedIn && (
           <form
             className="border-base-300 flex flex-col gap-1 border-t px-3 py-2"
             onSubmit={(e) => {
@@ -133,17 +157,17 @@ export function ChatPanel({ open, onClose, signedInCustomer, state, limit, onSen
                 dir="auto"
                 value={draft}
                 maxLength={MAX_MESSAGE}
-                placeholder={t('chat.placeholder')}
+                placeholder={t(copy.placeholder)}
                 onChange={(e) => setDraft(e.target.value)}
                 disabled={outOfMessages}
-                aria-label={t('chat.placeholder')}
+                aria-label={t(copy.placeholder)}
               />
               <button type="submit" className="btn btn-primary" disabled={!canSend || !draft.trim()}>
                 {state.sending ? <span className="loading loading-spinner loading-sm" /> : t('chat.send')}
               </button>
             </div>
             <div className="flex justify-between text-xs opacity-60">
-              <span>{t('chat.disclaimer')}</span>
+              <span>{t(copy.disclaimer)}</span>
               {draft.length > MAX_MESSAGE - 100 && <span dir="ltr">{draft.length}/{MAX_MESSAGE}</span>}
             </div>
           </form>

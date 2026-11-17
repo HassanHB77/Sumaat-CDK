@@ -19,7 +19,7 @@ from botocore.exceptions import ClientError
 from api import aws, hours
 from api.errors import TooMany
 
-DEFAULT_LIMIT = 10
+DEFAULT_LIMIT = 50  # messages per account per business day (customers and owners)
 KEEP_DAYS = 2  # after the business day ends
 
 

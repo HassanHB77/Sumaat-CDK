@@ -28,6 +28,7 @@ from constructs import Construct
 
 from agent.session import DEFAULT_MODEL_ID, IDLE_SECONDS
 from api.services.chat_quota import DEFAULT_LIMIT
+from api.services.stats import STATS_FIELDS  # the only order fields the owner assistant may read
 from infra.guardrail import GUARDRAIL_PROFILE, build_guardrail
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,8 +37,10 @@ MODEL = DEFAULT_MODEL_ID.removeprefix("us.")  # amazon.nova-2-lite-v1:0
 MODEL_REGIONS = ["us-east-1", "us-east-2", "us-west-2"]  # where the "us." inference profile may send a request
 
 # Rows the agent may touch (DynamoDB partition keys; see api/services/*):
-READ_KEYS = ["RESTAURANT#*", "CONFIG", "CHATQUOTA#*"]  # restaurants + menus, categories, its own counters
-GEO_INDEX_KEYS = ["GEO#*"]  # GSI1 "near me" cells (GSI1 also indexes orders - those stay out of reach)
+# restaurants + menus, categories, its own counters, and the owner -> restaurant lock (owner assistant)
+READ_KEYS = ["RESTAURANT#*", "CONFIG", "CHATQUOTA#*", "OWNER#*"]
+GEO_INDEX_KEYS = ["GEO#*"]  # GSI1 "near me" cells
+ORDER_INDEX_KEYS = ["RORDERS#*"]  # GSI1 restaurant order lists (owner assistant), STATS_FIELDS only
 WRITE_KEYS = ["CHATQUOTA#*"]
 
 # AWS OpenTelemetry -> CloudWatch GenAI Observability. Message text is redacted from traces:
@@ -183,6 +186,17 @@ class AgentStack(Stack):
                 resources=[f"{table.table_arn}/index/GSI1"],
                 conditions=_leading_keys(GEO_INDEX_KEYS),
             ),
+            # Owner assistant: a restaurant's orders, but ONLY the fields stats need. A query must name its
+            # attributes (Select=SPECIFIC_ATTRIBUTES) and may not ask for customer name, phone, email or note.
+            iam.PolicyStatement(
+                actions=["dynamodb:Query"],
+                resources=[f"{table.table_arn}/index/GSI1"],
+                conditions={
+                    **_leading_keys(ORDER_INDEX_KEYS),
+                    "ForAllValues:StringEquals": {"dynamodb:Attributes": list(STATS_FIELDS)},
+                    "StringEqualsIfExists": {"dynamodb:Select": "SPECIFIC_ATTRIBUTES"},
+                },
+            ),
             iam.PolicyStatement(
                 actions=["dynamodb:UpdateItem"],
                 resources=[table.table_arn],
@@ -222,7 +236,8 @@ class AgentStack(Stack):
                     "writes and logs:DescribeLogGroups only work on '*'; PutMetricData is limited to the "
                     "bedrock-agentcore namespace; log writes to the AgentCore runtime log groups; the guardrail "
                     "profile ARN has a region wildcard because the Standard tier may run in any US region; "
-                    "DynamoDB access is limited by partition-key prefixes (RESTAURANT#, CONFIG, CHATQUOTA#, GEO#).",
+                    "DynamoDB access is limited by partition-key prefixes (RESTAURANT#, CONFIG, CHATQUOTA#, OWNER#, GEO#, "
+                    "RORDERS#); RORDERS# order queries are also limited to the non-personal stats attributes.",
                 },
                 {
                     "id": "AwsSolutions-IAM4",

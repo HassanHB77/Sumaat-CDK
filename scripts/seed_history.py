@@ -41,6 +41,9 @@ NAMESPACE = uuid.UUID("5b1f3c2e-8d4a-4f0e-9c6b-2a7d1e9f4b10")
 HOUR_WEIGHT = {4: 0.1, 5: 0.1, 6: 0.3, 7: 0.6, 8: 0.9, 9: 0.9, 10: 0.7, 11: 0.8, 12: 1.4, 13: 2.2, 14: 2.0, 15: 1.2,
                16: 0.9, 17: 1.0, 18: 1.5, 19: 2.3, 20: 2.6, 21: 2.4, 22: 1.8, 23: 1.1, 0: 0.6, 1: 0.3, 2: 0.2, 3: 0.1}
 WEEKDAY_FACTOR = {3: 1.4, 4: 1.5, 5: 1.1}  # Thu, Fri, Sat (Mon=0)
+# The slow growth trend counts days from this FIXED date, so every run generates the same orders for a given day
+# (re-runs only add missing days). It is the first day of the 60-day run made on 17 Nov 2026.
+TREND_START = date(2026, 9, 18)
 
 
 def _seed_of(*parts: str) -> int:
@@ -77,8 +80,10 @@ def open_minutes(hours: str) -> list[int]:
     return out
 
 
-def generate_day(r: dict, day: date, day_index: int) -> list[dict]:
+def generate_day(r: dict, day: date, day_index: int | None = None) -> list[dict]:
     """The orders of one business day (no ids/numbers yet), sorted by time. Pure: no AWS calls."""
+    if day_index is None:
+        day_index = (day - TREND_START).days
     rnd = random.Random(_seed_of("day", r["slug"], day.isoformat()))
     prof = profile(r)
     slots = open_minutes(r["hours"])
@@ -170,8 +175,8 @@ def seed(table, days: int, include_today: bool, only: str | None, dry_run: bool)
         if only and r["slug"] != only:
             continue
         rid = stable_id("restaurant", r["slug"])
-        for index, day in enumerate(day_list):
-            orders = [o for o in generate_day(r, day, index) if o["history"][-1]["at"] <= now]  # nothing in the future
+        for day in day_list:
+            orders = [o for o in generate_day(r, day) if o["history"][-1]["at"] <= now]  # nothing in the future
             ids = [str(uuid.uuid5(NAMESPACE, o["key"])) for o in orders]
             existing = set() if dry_run else _existing_ids(table, ids)
             new = [o for o, i in zip(orders, ids) if i not in existing]

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { sendChat, SESSION_HEADER } from './chatClient'
-import { chatReducer, emptyChat, IDLE_MS, newSessionId, restoreChat, type ChatState } from './chatState'
+import { chatReducer, emptyChat, IDLE_MS, loadChat, newSessionId, restoreChat, saveChat, type ChatState } from './chatState'
 import { parseSse, type ChatEvent } from './chatStream'
 
 const DRAFT = {
@@ -172,5 +172,18 @@ describe('sendChat', () => {
     const events: ChatEvent[] = []
     await sendChat(req, (e) => events.push(e), { fetchImpl: vi.fn().mockResolvedValue(stream('data: {"type":"quota","left":3}\n\n')), getAccessToken: async () => 't' })
     expect(events).toEqual([{ type: 'quota', left: 3 }, { type: 'error', code: 'failed' }])
+  })
+})
+
+describe('owner and customer chats are kept apart', () => {
+  it('each mode saves and restores its own conversation', () => {
+    sessionStorage.clear()
+    const now = Date.now()
+    const customer = chatReducer(loadChat(now), { type: 'send', text: 'vegetarian?', now })
+    saveChat(customer)
+    const owner = chatReducer(loadChat(now, 'owner'), { type: 'send', text: 'orders this week?', now })
+    saveChat(owner, 'owner')
+    expect(loadChat(now).messages.map((m) => m.role === 'user' && m.text)).toEqual(['vegetarian?', false])
+    expect(loadChat(now, 'owner').messages.map((m) => m.role === 'user' && m.text)).toEqual(['orders this week?', false])
   })
 })

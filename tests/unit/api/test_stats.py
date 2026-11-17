@@ -117,7 +117,20 @@ def test_busiest_uses_riyadh_hours_and_skips_rejected():
     b = stats.busiest(orders)
     assert b["byHour"][0] == {"hour": "20:00", "orders": 2}  # 17:xx UTC = 20:xx Riyadh
     assert {"hour": "12:00", "orders": 0} not in b["byHour"] and len(b["byHour"]) == 2
-    assert b["byWeekday"] == [{"day": "Tuesday", "orders": 3}]
+    assert b["byWeekday"] == [{"day": "Tuesday", "orders": 3, "daysInPeriod": None, "avgOrdersPerDay": 3.0}]
+
+
+def test_busiest_days_ranked_by_average_not_total():
+    from datetime import date, timedelta
+
+    days = [date(2026, 11, 1) + timedelta(days=i) for i in range(17)]  # 3 Sundays, 2 Fridays
+    sundays = [order("SERVED", business=d) for d in ("2026-11-01", "2026-11-08", "2026-11-15") for _ in range(4)]
+    fridays = [order("SERVED", business=d) for d in ("2026-11-06", "2026-11-13") for _ in range(5)]
+    b = stats.busiest(sundays + fridays, days)
+    assert [(d["day"], d["orders"], d["avgOrdersPerDay"]) for d in b["byWeekday"]] == [
+        ("Friday", 10, 5.0),  # fewer orders in total, but busier per day
+        ("Sunday", 12, 4.0),
+    ]
 
 
 def test_rejections_with_reasons():

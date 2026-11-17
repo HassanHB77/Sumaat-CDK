@@ -14,6 +14,7 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { pickName } from '../lib/format'
 import { loadSoundOn, saveSoundOn } from '../lib/sound'
 import { ON_DARK } from '../components/onDark'
+import { OwnerChatButton } from '../chat/ChatButton'
 
 export type StaffContext = { restaurantId: string | null; soundOn: boolean }
 
@@ -72,6 +73,7 @@ export function StaffLayout() {
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4">
         <Outlet context={{ restaurantId, soundOn } satisfies StaffContext} />
       </main>
+      {role === 'owner' && <OwnerChatButton />}
     </div>
   )
 }

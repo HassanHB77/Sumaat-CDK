@@ -9,6 +9,10 @@ export const MAX_MESSAGE = 500
 export const IDLE_MS = 15 * 60 * 1000 // the server forgets a chat after 15 idle minutes, so do we
 const STORAGE_KEY = 'sumaat.chat'
 
+/** Customers find food; owners ask about their own restaurant's numbers. Each keeps its own conversation. */
+export type ChatMode = 'customer' | 'owner'
+const storageKey = (mode: ChatMode) => (mode === 'owner' ? `${STORAGE_KEY}.owner` : STORAGE_KEY)
+
 export type ChatMessage =
   | { role: 'user'; text: string }
   | {
@@ -127,18 +131,18 @@ export function restoreChat(raw: string | null, now: number): ChatState {
   return emptyChat(now)
 }
 
-export function loadChat(now = Date.now()): ChatState {
+export function loadChat(now = Date.now(), mode: ChatMode = 'customer'): ChatState {
   try {
-    return restoreChat(sessionStorage.getItem(STORAGE_KEY), now)
+    return restoreChat(sessionStorage.getItem(storageKey(mode)), now)
   } catch {
     return emptyChat(now)
   }
 }
 
-export function saveChat(state: ChatState): void {
+export function saveChat(state: ChatState, mode: ChatMode = 'customer'): void {
   try {
     const { sessionId, messages, lastActive } = state
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId, messages, lastActive }))
+    sessionStorage.setItem(storageKey(mode), JSON.stringify({ sessionId, messages, lastActive }))
   } catch {
     /* private mode: the chat just won't survive a reload */
   }

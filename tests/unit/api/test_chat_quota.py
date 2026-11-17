@@ -1,4 +1,7 @@
-"""api/services/chat_quota.py: 10 AI-chat messages per customer per business day (04:00 -> 04:00 Riyadh)."""
+"""api/services/chat_quota.py: AI-chat messages per account per business day (04:00 -> 04:00 Riyadh).
+
+The default is 50 (customers and owners); these tests pin CHAT_DAILY_LIMIT=10 to check the mechanics with small numbers.
+"""
 
 from datetime import datetime
 
@@ -16,8 +19,14 @@ def at(day, h, m=0):
 
 
 @pytest.fixture
-def table(ddb, clock):
+def table(ddb, clock, monkeypatch):
+    monkeypatch.setenv("CHAT_DAILY_LIMIT", "10")
     return ddb[0]
+
+
+def test_default_is_50_a_day(monkeypatch):
+    monkeypatch.delenv("CHAT_DAILY_LIMIT", raising=False)
+    assert chat_quota.daily_limit() == 50
 
 
 def row(table, sub, day):
@@ -86,6 +95,8 @@ def test_limit_from_environment(table, monkeypatch):
 from api.handler import app  # noqa: E402
 from tests.unit.api.conftest import owner_claims, sara  # noqa: E402
 
+CASHIER = {"sub": "cashier-sub-1", "cognito:username": "cashier-sub-1", "name": "Ali", "cognito:groups": "cashier"}
+
 
 def test_quota_route_for_customer(table, make_client):
     chat_quota.use_one(SARA)
@@ -93,6 +104,11 @@ def test_quota_route_for_customer(table, make_client):
     assert r.status_code == 200 and r.json() == {"left": 9, "limit": 10}
 
 
-def test_quota_route_customers_only(table, make_client):
-    assert make_client(app, owner_claims()).get("/me/chat-quota").status_code == 403
+def test_quota_route_for_owner_too(table, make_client):
+    r = make_client(app, owner_claims()).get("/me/chat-quota")
+    assert r.status_code == 200 and r.json() == {"left": 10, "limit": 10}
+
+
+def test_quota_route_not_for_cashiers_or_guests(table, make_client):
+    assert make_client(app, CASHIER).get("/me/chat-quota").status_code == 403  # cashiers have no assistant
     assert make_client(app, None).get("/me/chat-quota").status_code == 401

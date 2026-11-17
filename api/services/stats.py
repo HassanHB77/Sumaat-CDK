@@ -124,15 +124,23 @@ def prep_summary(orders: list[dict]) -> dict:
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
 
-def busiest(orders: list[dict]) -> dict:
-    """Orders (not rejected/cancelled) by Riyadh hour of day and by weekday (business day), busiest first."""
+def busiest(orders: list[dict], days: list | None = None) -> dict:
+    """Orders (not rejected/cancelled) by Riyadh hour of day and by weekday (business day), busiest first.
+
+    Weekdays are ranked by the AVERAGE per day when `days` (the period's business days) is given: a month with
+    three Sundays and two Fridays must not make Sunday look busier just because it happened more often.
+    """
     kept = [o for o in orders if o["status"] not in ("REJECTED", "CANCELLED")]
     hours = Counter(datetime.fromisoformat(o["createdAt"].replace("Z", "+00:00")).astimezone(RIYADH).hour for o in kept)
-    days = Counter(WEEKDAYS[datetime.fromisoformat(o["businessDate"]).weekday()] for o in kept if o.get("businessDate"))
-    return {
-        "byHour": [{"hour": f"{h:02d}:00", "orders": n} for h, n in hours.most_common()],
-        "byWeekday": [{"day": d, "orders": n} for d, n in days.most_common()],
-    }
+    counts = Counter(WEEKDAYS[datetime.fromisoformat(o["businessDate"]).weekday()] for o in kept if o.get("businessDate"))
+    occurrences = Counter(WEEKDAYS[d.weekday()] for d in days) if days else Counter()
+    by_day = []
+    for name, n in counts.items():
+        k = occurrences.get(name) or 1
+        by_day.append({"day": name, "orders": n, "daysInPeriod": occurrences.get(name, 0) or None,
+                       "avgOrdersPerDay": round(n / k, 1)})
+    by_day.sort(key=lambda d: (-d["avgOrdersPerDay"], -d["orders"]))
+    return {"byHour": [{"hour": f"{h:02d}:00", "orders": n} for h, n in hours.most_common()], "byWeekday": by_day}
 
 
 def rejections(orders: list[dict]) -> dict:

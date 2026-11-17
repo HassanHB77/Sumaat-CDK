@@ -5,12 +5,12 @@ import { getConfig } from '../config/config'
 import { useLanguage } from '../i18n/LanguageContext'
 import { loadSpot } from '../lib/geo'
 import { sendChat } from './chatClient'
-import { chatReducer, loadChat, newSessionId, saveChat } from './chatState'
+import { chatReducer, loadChat, newSessionId, saveChat, type ChatMode } from './chatState'
 
 /** The chat's state and actions. Lives in ChatButton (always mounted on customer pages) so closing the panel or
  *  moving between pages keeps the conversation. */
-export function useChat() {
-  const [state, dispatch] = useReducer(chatReducer, undefined, () => loadChat())
+export function useChat(mode: ChatMode = 'customer') {
+  const [state, dispatch] = useReducer(chatReducer, undefined, () => loadChat(Date.now(), mode))
   const stateRef = useRef(state)
   const abortRef = useRef<AbortController | null>(null)
   const { lang } = useLanguage()
@@ -18,8 +18,8 @@ export function useChat() {
 
   useEffect(() => {
     stateRef.current = state
-    saveChat(state)
-  }, [state])
+    saveChat(state, mode)
+  }, [state, mode])
 
   const reset = useCallback(() => {
     abortRef.current?.abort()

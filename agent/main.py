@@ -1,7 +1,13 @@
-"""Agent entrypoint on Bedrock AgentCore Runtime: one customer chat message in, a stream of events out.
+"""Agent entrypoint on Bedrock AgentCore Runtime: one chat message in, a stream of events out.
+
+Two assistants share this runtime:
+- customers: finds food near their map spot and drafts carts (agent/tools.py, agent/prompt.py);
+- owners: answers questions about their OWN restaurant's orders and sales (agent/owner_tools.py,
+  agent/prompt_owner.py). The restaurant comes from the server (OWNER#<sub> lock + profile ownerSub), never the model.
+Cashiers (and anyone else) get no assistant.
 
 AgentCore has already checked the Cognito access token. Then, per message:
-  1. the caller must be a customer                          -> else error not_customer
+  1. the caller must be a customer, or an owner with a restaurant -> else error not_customer / not_owner
   2. the message must be 1-500 characters                   -> else error invalid_message
   3. one message at a time per chat                         -> else error busy (not counted)
   4. take one message from today's allowance (10/day)       -> quota {left} | error quota_exceeded
@@ -26,6 +32,7 @@ from agent.catalog import Spot
 from agent.claims import caller_from
 from agent.session import Sessions
 from agent.text import MarkdownFilter, MarkerFilter, ThinkingFilter, reply_language, western_digits
+from api import aws
 from api.services import chat_quota
 
 logging.basicConfig(level=logging.WARNING)  # libraries: warnings only (they may log request details at INFO)
@@ -73,11 +80,32 @@ def _usage(agent: Any) -> tuple[int, int]:
         return 0, 0
 
 
+def owner_restaurant(sub: str) -> str | None:
+    """The owner's restaurant id, if the one-restaurant-per-owner lock exists AND the profile says they own it."""
+    table = aws.table()
+    lock = table.get_item(Key={"PK": f"OWNER#{sub}", "SK": "RESTAURANT"}).get("Item")
+    rid = lock.get("restaurantId") if lock else None
+    if not isinstance(rid, str) or not rid:
+        return None
+    profile = table.get_item(Key={"PK": f"RESTAURANT#{rid}", "SK": "PROFILE"}).get("Item")
+    return rid if profile and profile.get("ownerSub") == sub else None
+
+
 @app.entrypoint
 async def invoke(payload: dict, context: RequestContext):
     started = time.monotonic()
     caller = caller_from(context.request_headers)
-    if caller is None or not caller.is_customer:
+    restaurant_id: str | None = None
+    if caller is not None and caller.is_customer:
+        mode = "customer"
+    elif caller is not None and caller.is_owner:
+        mode = "owner"
+        restaurant_id = owner_restaurant(caller.sub)
+        if restaurant_id is None:
+            log.info("chat outcome=not_owner")
+            yield error("not_owner")
+            return
+    else:
         log.info("chat outcome=not_customer")
         yield error("not_customer")
         return
@@ -91,7 +119,7 @@ async def invoke(payload: dict, context: RequestContext):
         return
 
     session_id = context.session_id or f"no-session-{caller.sub}"
-    session = sessions.get(session_id, caller.sub)
+    session = sessions.get(session_id, caller.sub, mode, restaurant_id)
     if session.lock.locked():
         log.info("chat outcome=busy_session")
         yield error("busy")
@@ -107,7 +135,7 @@ async def invoke(payload: dict, context: RequestContext):
             return
         yield {"type": "quota", "left": left}
 
-        session.spot = spot_from(payload)
+        session.spot = spot_from(payload) if mode == "customer" else None
         session.pending_draft = None
         # The model alone often answers in Arabic (the tool results are full of Arabic names), so say it per message.
         prompt = f"{message}\n\n[Reply in {reply_language(message, payload.get('lang'))}.]"
@@ -158,8 +186,8 @@ async def invoke(payload: dict, context: RequestContext):
             yield {"type": "draft", **session.pending_draft}
         tokens_after = _usage(session.agent)
         log.info(
-            "chat outcome=%s ms=%d tools=%s draft=%s tokens_in=%d tokens_out=%d stop=%s",
-            "blocked" if blocked else "ok", (time.monotonic() - started) * 1000, ",".join(tools_used),
+            "chat mode=%s outcome=%s ms=%d tools=%s draft=%s tokens_in=%d tokens_out=%d stop=%s",
+            mode, "blocked" if blocked else "ok", (time.monotonic() - started) * 1000, ",".join(tools_used),
             bool(session.pending_draft), tokens_after[0] - tokens_before[0], tokens_after[1] - tokens_before[1], stop,
         )
         yield {"type": "done"}

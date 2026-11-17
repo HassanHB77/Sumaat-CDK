@@ -53,3 +53,9 @@ def test_mix_of_statuses_and_realistic_prep():
     for r in served:
         steps = [h["status"] for h in r["statusHistory"]]
         assert steps == ["PLACED", "ACCEPTED", "READY_FOR_PICKUP", "SERVED"]
+
+
+def test_trend_uses_a_fixed_date_so_reruns_add_nothing():
+    # Same day -> same orders, whatever window the run covers (the trend no longer depends on the run's start).
+    assert generate_day(NAKHLA, DAY) == generate_day(NAKHLA, DAY)
+    assert len(generate_day(NAKHLA, date(2026, 11, 16))) >= 1

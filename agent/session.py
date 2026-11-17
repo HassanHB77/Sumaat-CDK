@@ -24,6 +24,8 @@ DEFAULT_MODEL_ID = "us.amazon.nova-2-lite-v1:0"
 @dataclass
 class ChatSession:
     sub: str
+    mode: str = "customer"  # "customer" (food finder) or "owner" (the owner's own numbers)
+    restaurant_id: str | None = None  # owner mode: the owner's restaurant, from the server (never the model)
     spot: Spot | None = None
     pending_draft: dict | None = None
     agent: Any = None
@@ -55,13 +57,17 @@ def build_agent(session: ChatSession):
     from strands import Agent
     from strands.agent.conversation_manager import SlidingWindowConversationManager
 
-    from agent.prompt import SYSTEM_PROMPT
-    from agent.tools import build_tools
+    if session.mode == "owner":
+        from agent.owner_tools import build_owner_tools as build_tools
+        from agent.prompt_owner import OWNER_PROMPT as prompt
+    else:
+        from agent.prompt import SYSTEM_PROMPT as prompt
+        from agent.tools import build_tools
 
     return Agent(
         model=build_model(),
         tools=build_tools(session),
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=prompt,
         conversation_manager=SlidingWindowConversationManager(window_size=WINDOW_MESSAGES),
         callback_handler=None,  # don't print the conversation to stdout (= the logs)
     )
@@ -72,13 +78,14 @@ class Sessions:
         self._factory = factory
         self._items: OrderedDict[str, ChatSession] = OrderedDict()
 
-    def get(self, session_id: str, sub: str) -> ChatSession:
-        """The caller's session for this id; a new one if it's unknown, idle too long, or someone else's."""
+    def get(self, session_id: str, sub: str, mode: str = "customer", restaurant_id: str | None = None) -> ChatSession:
+        """The caller's session for this id; a new one if it's unknown, idle too long, someone else's, or for
+        another mode/restaurant (an owner's chat never continues as a customer chat, or the other way round)."""
         now = time.monotonic()
         self._drop_idle(now)
         s = self._items.get(session_id)
-        if s is None or s.sub != sub:
-            s = ChatSession(sub=sub)
+        if s is None or s.sub != sub or s.mode != mode or s.restaurant_id != restaurant_id:
+            s = ChatSession(sub=sub, mode=mode, restaurant_id=restaurant_id)
             s.agent = (self._factory or build_agent)(s)
             self._items[session_id] = s
         self._items.move_to_end(session_id)

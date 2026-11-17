@@ -104,7 +104,7 @@ def test_runtime_env_and_lifecycle(template):
     r = _runtime(template)
     env = r["EnvironmentVariables"]
     assert env["MODEL_ID"] == "us.amazon.nova-2-lite-v1:0"
-    assert env["CHAT_DAILY_LIMIT"] == "10"
+    assert env["CHAT_DAILY_LIMIT"] == "50"  # customers and owners
     assert "Fn::GetAtt" in env["GUARDRAIL_ID"] and "Fn::GetAtt" in env["GUARDRAIL_VERSION"]
     assert env["OTEL_SEMCONV_STABILITY_OPT_IN"] == "gen_ai_unredacted_attributes="  # no message text in traces
     assert env["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] == "false"
@@ -162,9 +162,21 @@ def test_model_access_is_nova_2_lite_only(template):
 
 def test_dynamodb_access_limited_by_partition_key(template):
     reads = _stmt(template, "dynamodb:GetItem")
-    assert reads["Condition"] == {"ForAllValues:StringLike": {"dynamodb:LeadingKeys": ["RESTAURANT#*", "CONFIG", "CHATQUOTA#*"]}}
-    geo = _stmt(template, "dynamodb:Query", "/index/GSI1")
+    assert reads["Condition"] == {
+        "ForAllValues:StringLike": {"dynamodb:LeadingKeys": ["RESTAURANT#*", "CONFIG", "CHATQUOTA#*", "OWNER#*"]}
+    }
+    gsi1 = [s for s in _policy_statements(template) if "/index/GSI1" in str(s["Resource"])]
+    assert len(gsi1) == 2
+    geo = next(s for s in gsi1 if "GEO#*" in str(s["Condition"]))
     assert geo["Condition"] == {"ForAllValues:StringLike": {"dynamodb:LeadingKeys": ["GEO#*"]}}
+    # Owner assistant: a restaurant's orders, non-personal fields only, and it must name them.
+    orders = next(s for s in gsi1 if "RORDERS#*" in str(s["Condition"]))
+    assert orders["Action"] == "dynamodb:Query"
+    assert orders["Condition"]["ForAllValues:StringLike"] == {"dynamodb:LeadingKeys": ["RORDERS#*"]}
+    fields = set(orders["Condition"]["ForAllValues:StringEquals"]["dynamodb:Attributes"])
+    assert {"status", "items", "statusHistory", "totalHalalas"} <= fields
+    assert not fields & {"customerName", "customerPhone", "customerEmail", "customerSub", "note"}
+    assert orders["Condition"]["StringEqualsIfExists"] == {"dynamodb:Select": "SPECIFIC_ATTRIBUTES"}
     write = _stmt(template, "dynamodb:UpdateItem")
     assert write["Condition"] == {"ForAllValues:StringLike": {"dynamodb:LeadingKeys": ["CHATQUOTA#*"]}}
     every = [a for s in _policy_statements(template) for a in (s["Action"] if isinstance(s["Action"], list) else [s["Action"]])]

@@ -4,7 +4,7 @@
  */
 import type { CartDraft } from '../cart/cartLogic'
 
-export type ChatErrorCode = 'quota_exceeded' | 'not_customer' | 'invalid_message' | 'busy' | 'failed' | 'network'
+export type ChatErrorCode = 'quota_exceeded' | 'not_customer' | 'not_owner' | 'invalid_message' | 'busy' | 'failed' | 'network'
 
 export type ChatEvent =
   | { type: 'quota'; left: number }

@@ -35,7 +35,8 @@ DENIED_TOPICS = {
         ["What do you think about the government?", "Which religion is right?", "ما رأيك في الانتخابات؟"],
     ),
     "Financial-and-legal-advice": (
-        "Advice about investments, stocks, crypto, loans, taxes or legal matters and disputes.",
+        "Personal advice about investments, stocks, crypto, loans, taxes or legal matters and disputes. "
+        "A restaurant owner's own order counts, sales figures and dish statistics in the app are not included.",
         ["Should I buy this stock?", "How do I sue a restaurant?", "هل أستثمر في العملات الرقمية؟"],
     ),
     "Other-food-apps": (

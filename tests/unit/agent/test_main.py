@@ -41,6 +41,7 @@ class FakeAgent:
 @pytest.fixture
 def agent_script(monkeypatch, ddb, clock):
     """Replace the real agent with FakeAgent; set `script[:]` to choose what the 'model' does."""
+    monkeypatch.setenv("CHAT_DAILY_LIMIT", "10")  # the mechanics with small numbers (default is 50)
     script: list = [{"data": "Hello"}, {"result": None}]
     made: list[FakeAgent] = []
 
@@ -117,10 +118,51 @@ def test_draft_is_per_message(agent_script, shop):
     assert "draft" not in types(chat({"message": "thanks", **HERE}))
 
 
-@pytest.mark.parametrize("groups", [("owner",), ("cashier",), ()])
-def test_only_customers(agent_script, groups):
+@pytest.mark.parametrize("groups", [("cashier",), ()])
+def test_no_assistant_for_cashiers_or_unknown_groups(agent_script, groups):
     assert chat({"message": "hi"}, ctx(groups=groups)) == [{"type": "error", "code": "not_customer"}]
     assert chat_quota.peek(SARA) == 10
+
+
+# --- owner assistant ---------------------------------------------------------------------------------------------
+
+OWNER = "owner-sub-1"
+RID = "rest-1"
+
+
+def _own_restaurant(ddb, owner_sub=OWNER, profile_owner=OWNER):
+    table = ddb[0]
+    table.put_item(Item={"PK": f"OWNER#{owner_sub}", "SK": "RESTAURANT", "restaurantId": RID})
+    table.put_item(Item={"PK": f"RESTAURANT#{RID}", "SK": "PROFILE", "id": RID, "ownerSub": profile_owner})
+
+
+def test_owner_gets_the_owner_assistant_for_their_restaurant(agent_script, ddb):
+    _own_restaurant(ddb)
+    script, made = agent_script
+    events = chat({"message": "orders this week?", **HERE}, ctx(groups=("owner",), sub=OWNER))
+    assert types(events) == ["quota", "text", "done"]
+    session = made[-1].session
+    assert (session.mode, session.restaurant_id) == ("owner", RID)
+    assert session.spot is None  # owners have no map spot, even if the browser sends one
+    assert chat_quota.peek(OWNER) == 9  # same daily allowance as customers
+
+
+def test_owner_without_restaurant_is_refused(agent_script, ddb):
+    assert chat({"message": "hi"}, ctx(groups=("owner",), sub=OWNER)) == [{"type": "error", "code": "not_owner"}]
+    assert chat_quota.peek(OWNER) == 10
+
+
+def test_owner_lock_must_match_the_profile(agent_script, ddb):
+    _own_restaurant(ddb, profile_owner="someone-else")
+    assert chat({"message": "hi"}, ctx(groups=("owner",), sub=OWNER)) == [{"type": "error", "code": "not_owner"}]
+
+
+def test_an_owner_chat_never_continues_as_a_customer_chat(agent_script, ddb):
+    _own_restaurant(ddb)
+    script, made = agent_script
+    chat({"message": "sales?"}, ctx(groups=("owner",), sub=OWNER, session_id="shared-" + "x" * 30))
+    chat({"message": "food?", **HERE}, ctx(groups=("customer",), sub=OWNER, session_id="shared-" + "x" * 30))
+    assert [m.session.mode for m in made] == ["owner", "customer"]
 
 
 def test_no_token():
