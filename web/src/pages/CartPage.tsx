@@ -88,8 +88,8 @@ export function CartPage() {
               <Photo src={l.imageUrl} className="size-12" />
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{pickName(l, lang)}</p>
-                <p className="text-sm text-muted" dir="ltr">
-                  {formatMoney(l.priceHalalas * l.qty, lang)}
+                <p className="text-sm text-muted">
+                  <span dir="ltr">{formatMoney(l.priceHalalas * l.qty, lang)}</span>
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -126,7 +126,7 @@ export function CartPage() {
 
         <div className="flex justify-between rounded-box bg-base-100 p-4 text-lg font-bold shadow-sm">
           <span>{t('cart.total')}</span>
-          <span dir="ltr">{formatMoney(total, lang)}</span>
+          <span dir="ltr" className="shrink-0 whitespace-nowrap">{formatMoney(total, lang)}</span>
         </div>
         <p className="text-center text-sm text-muted">{t('cart.pickupNotice')}</p>
 

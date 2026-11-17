@@ -181,9 +181,7 @@ export function MenuItemCard({ item, action }: { item: MenuItem; action?: ReactN
           <h3 className="font-medium">{pickName(item, lang)}</h3>
           {item.popular && <span className="badge badge-sm badge-primary badge-soft">{t('menu.popular')}</span>}
         </div>
-        <p className="text-sm text-muted" dir="ltr">
-          {formatCalories(item.calories, lang)}
-        </p>
+        <p className="text-sm text-muted">{formatCalories(item.calories, lang)}</p>
         <DietBadges tags={item.dietTags} />
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
