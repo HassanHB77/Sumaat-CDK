@@ -5,6 +5,8 @@ import { ApiError } from '../api/client'
 import { cancelOrder, getOrder, getRestaurant } from '../api/endpoints'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { LocationPreview } from '../components/LocationPreview'
+import { ReadyTime } from '../components/MenuParts'
+import { OrderAgainButton } from '../components/OrderAgainButton'
 import { OrderItems, OrderStatusBadge, OrderStepper } from '../components/OrderParts'
 import { PageContainer } from '../components/PageContainer'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
@@ -99,6 +101,10 @@ export function OrderPage() {
               {restaurant}
             </Link>
             <p className="text-sm text-muted">{t('order.placedAt', { time: formatTime(o.createdAt, lang) })}</p>
+            {(o.status === 'PLACED' || o.status === 'ACCEPTED') && (
+              <ReadyTime minutes={place.data?.typicalReadyMinutes} className="mt-1 text-muted" />
+            )}
+            {isFinal(o.status) && <OrderAgainButton order={o} className="btn btn-sm btn-outline mt-2" />}
           </div>
           <OrderStatusBadge status={o.status} />
         </div>

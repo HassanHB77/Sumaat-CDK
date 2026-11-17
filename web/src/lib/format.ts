@@ -72,3 +72,16 @@ export function formatTime(iso: string, lang: Lang): string {
     timeZone: 'Asia/Riyadh',
   }).format(new Date(iso))
 }
+
+/** Business date -> "Thu 12" / "الخميس 12" (chart labels). Read at noon UTC so no time zone shifts the day. */
+export function formatDayShort(businessDate: string, lang: Lang): string {
+  return new Intl.DateTimeFormat(LOCALE[lang], { weekday: 'short', day: 'numeric', timeZone: 'UTC' })
+    .format(new Date(`${businessDate}T12:00:00Z`))
+    .replace(/,/g, '')
+}
+
+/** 41250 -> "413 SAR" / "413 ر.س": whole riyals, for tight spaces (cards, chart labels). */
+export function formatMoneyWhole(halalas: number, lang: Lang): string {
+  const sar = Math.round(halalas / 100).toLocaleString('en-US')
+  return lang === 'ar' ? `${sar} ر.س` : `${sar} SAR`
+}

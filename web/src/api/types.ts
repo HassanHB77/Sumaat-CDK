@@ -46,9 +46,30 @@ export type MenuItem = {
   dietTags: DietTag[]
   isAvailable: boolean
   imageUrl?: string | null // "/img/..." on the site's own address; null/missing = no photo
+  popular?: boolean // one of the restaurant's top dishes (last 30 days); only from GET /restaurants/{id}
 }
 
-export type RestaurantDetail = Restaurant & { menu: MenuItem[] }
+export type RestaurantDetail = Restaurant & {
+  menu: MenuItem[]
+  typicalReadyMinutes?: number | null // median accept -> ready over the last 30 days (null: too few orders)
+}
+
+// --- owner numbers (GET /restaurants/{id}/stats; sales = served orders) ---
+
+export type OwnerStats = {
+  today: {
+    orders: number
+    served: number
+    open: number
+    rejected: number
+    cancelled: number
+    salesHalalas: number
+    avgOrderHalalas: number
+    avgPrepMinutes: number | null
+    bestSeller: { itemId: string; name: string; nameAr: string; qty: number } | null
+  }
+  last7: { date: string; servedOrders: number; salesHalalas: number }[] // oldest first, last = today
+}
 
 export type Categories = { categories: string[] } // in menu order
 

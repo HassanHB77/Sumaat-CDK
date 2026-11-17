@@ -10,14 +10,16 @@ Privacy: `load_orders` asks DynamoDB for non-personal fields only (no customer n
 nothing here can leak customer data. The owner AI's IAM role is limited to the same field list.
 """
 
+import time as _time
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 from statistics import mean, median
 from typing import Any
 
 from boto3.dynamodb.conditions import Key
 
 from api import aws
+from api import hours as _hours
 from api.hours import RIYADH
 
 # The only order fields stats ever read (the owner AI's IAM policy allows exactly these on GSI1).
@@ -152,3 +154,61 @@ def change(cur: float, prev: float) -> float | None:
     if not prev:
         return None
     return round((cur - prev) / prev * 100, 1)
+
+
+# --- what the website shows ---------------------------------------------------------------------------------------
+
+INSIGHT_DAYS = 30
+INSIGHT_TTL_SECONDS = 300  # "usually ready in" and "Popular" change slowly; one query per restaurant per 5 min
+MIN_PREP_SAMPLES = 5
+POPULAR_TOP = 3
+POPULAR_MIN_QTY = 3
+_insights_cache: dict[str, tuple[float, dict]] = {}
+
+
+def _days_start(days: int, now=None) -> str:
+    first = _hours.business_date(now) - timedelta(days=days - 1)
+    return _hours.day_bounds_utc(first)[0]
+
+
+def _now_utc(now=None) -> str:
+    return _hours._utc((now or _hours.riyadh_now()))
+
+
+def public_insights(rid: str, now=None) -> dict:
+    """For customers (last 30 days): typicalReadyMinutes (median prep, rounded to 5; None if < 5 orders) and the
+    ids of the restaurant's top dishes. Cached in the Lambda for 5 minutes."""
+    hit = _insights_cache.get(rid)
+    if hit and hit[0] > _time.monotonic():
+        return hit[1]
+    orders = load_orders(rid, _days_start(INSIGHT_DAYS, now), _now_utc(now))
+    mins = prep_minutes(orders)
+    ready = max(5, int(5 * round(median(mins) / 5))) if len(mins) >= MIN_PREP_SAMPLES else None
+    sold = sorted(dish_sales(orders).values(), key=lambda d: (-d["qty"], d["itemId"]))
+    popular = [d["itemId"] for d in sold[:POPULAR_TOP] if d["qty"] >= POPULAR_MIN_QTY]
+    result = {"typicalReadyMinutes": ready, "popularItemIds": popular}
+    _insights_cache[rid] = (_time.monotonic() + INSIGHT_TTL_SECONDS, result)
+    return result
+
+
+def owner_overview(rid: str, now=None) -> dict:
+    """Owner page: today's numbers + served orders and sales for each of the last 7 business days."""
+    days = _hours.last_n_days(7, now)
+    orders = load_orders(rid, _hours.day_bounds_utc(days[0])[0], _now_utc(now))
+    today_key = days[-1].isoformat()
+    today = [o for o in orders if o.get("businessDate") == today_key]
+    sold = sorted(dish_sales(today).values(), key=lambda d: (-d["qty"], -d["salesHalalas"], d["name"]))
+    prep = prep_summary(today)
+    last7 = []
+    for d in days:
+        day_orders = _served([o for o in orders if o.get("businessDate") == d.isoformat()])
+        last7.append({"date": d.isoformat(), "servedOrders": len(day_orders),
+                      "salesHalalas": sum(int(o["totalHalalas"]) for o in day_orders)})
+    return {
+        "today": {
+            **summary(today),
+            "avgPrepMinutes": prep.get("avgMinutes"),
+            "bestSeller": ({k: sold[0][k] for k in ("itemId", "name", "nameAr", "qty")} if sold else None),
+        },
+        "last7": last7,
+    }

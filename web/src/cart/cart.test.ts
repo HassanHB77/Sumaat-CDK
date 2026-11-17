@@ -4,6 +4,7 @@ import { formatOrderLabel, formatTime } from '../lib/format'
 import { findOpenOrderAt, isFinal, rejectReason, stepIndex, timeOf } from '../lib/orders'
 import {
   addItem,
+  draftFromOrder,
   EMPTY_CART,
   fromDraft,
   itemCount,
@@ -157,7 +158,7 @@ describe('fromDraft (AI assistant draft -> cart)', () => {
     const c = fromDraft(EMPTY_CART, draft())
     expect(c.restaurantId).toBe('r2')
     expect(c.restaurantNameAr).toBe('تمر وقهوة المبرز')
-    expect(c.lines).toEqual(draft().lines)
+    expect(c.lines).toEqual(draft().lines.map((l) => ({ ...l, imageUrl: null }))) // AI drafts carry no photo yet
     expect(totalHalalas(c)).toBe(3000)
   })
 
@@ -199,5 +200,43 @@ describe('cart photos', () => {
     const res = reconcile(c, 'r1', [dish('a', 1000, { imageUrl: '/img/r/r1/items/a/new.jpg' })])
     expect(res.changed).toBe(false)
     expect(res.cart.lines[0].imageUrl).toBe('/img/r/r1/items/a/new.jpg')
+  })
+})
+
+describe('order again', () => {
+  const restaurant = {
+    id: 'r1',
+    name: 'Nakhla',
+    nameAr: 'النخلة',
+    menu: [
+      dish('a', 1200, { imageUrl: '/img/r/r1/items/a/x.jpg' }),
+      dish('b', 900, { isAvailable: false }),
+    ],
+  }
+  const past = {
+    items: [
+      { itemId: 'a', name: 'Dish a', nameAr: 'طبق a', qty: 2 },
+      { itemId: 'b', name: 'Dish b', nameAr: 'طبق b', qty: 1 }, // hidden now
+      { itemId: 'gone', name: 'Old dish', nameAr: 'طبق قديم', qty: 1 }, // removed
+    ],
+  }
+
+  it("uses today's prices and photos, skips hidden or removed dishes", () => {
+    const { draft, skipped } = draftFromOrder(past, restaurant)
+    expect(draft?.lines).toEqual([
+      { itemId: 'a', name: 'Dish a', nameAr: 'طبق a', priceHalalas: 1200, qty: 2, imageUrl: '/img/r/r1/items/a/x.jpg' },
+    ])
+    expect(draft?.totalHalalas).toBe(2400)
+    expect(skipped.map((s) => s.name)).toEqual(['Dish b', 'Old dish'])
+  })
+
+  it('nothing available -> no draft', () => {
+    expect(draftFromOrder({ items: [past.items[1]] }, restaurant).draft).toBeNull()
+  })
+
+  it('the cart becomes the draft and keeps photos', () => {
+    const cart = fromDraft(EMPTY_CART, draftFromOrder(past, restaurant).draft!)
+    expect(cart.restaurantId).toBe('r1')
+    expect(cart.lines[0].imageUrl).toBe('/img/r/r1/items/a/x.jpg')
   })
 })

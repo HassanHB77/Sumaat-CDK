@@ -12,6 +12,21 @@ import { RestaurantIcon } from './RestaurantIcon'
 
 export const sectionId = (category: string) => `cat-${category.replace(/\W+/g, '-')}`
 
+/** "Usually ready in about 15 min" (median accept -> ready of the last 30 days), or nothing if unknown. */
+export function ReadyTime({ minutes, className = '' }: { minutes?: number | null; className?: string }) {
+  const { t } = useLanguage()
+  if (!minutes) return null
+  return (
+    <p className={`flex items-center gap-1 text-sm ${className}`}>
+      <svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" strokeLinecap="round" />
+      </svg>
+      <span>{t('menu.readyIn', { n: minutes })}</span>
+    </p>
+  )
+}
+
 export function MenuHeader({ restaurant: r }: { restaurant: RestaurantDetail }) {
   const { lang } = useLanguage()
   return (
@@ -38,6 +53,7 @@ export function MenuHeader({ restaurant: r }: { restaurant: RestaurantDetail }) 
             </p>
             <CuisineBadges cuisines={r.cuisines} />
             {pickDescription(r, lang) && <p className="grow-0 text-sm">{pickDescription(r, lang)}</p>}
+            <ReadyTime minutes={r.typicalReadyMinutes} className="grow-0 text-muted" />
           </div>
         </div>
         <div className="shrink-0 px-4 pb-4 sm:w-80 sm:p-3 sm:ps-0 lg:w-96">
@@ -156,12 +172,15 @@ export function DietBadges({ tags }: { tags: DietTag[] }) {
 
 /** Name, price, calories, diet badges; `action` = the Add button / quantity stepper (or owner controls later). */
 export function MenuItemCard({ item, action }: { item: MenuItem; action?: ReactNode }) {
-  const { lang } = useLanguage()
+  const { t, lang } = useLanguage()
   return (
     <article className="flex items-start gap-3 rounded-box bg-base-100 p-4 shadow-sm">
       <Photo src={item.imageUrl} className="size-16 sm:size-20" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h3 className="font-medium">{pickName(item, lang)}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-medium">{pickName(item, lang)}</h3>
+          {item.popular && <span className="badge badge-sm badge-primary badge-soft">{t('menu.popular')}</span>}
+        </div>
         <p className="text-sm text-muted" dir="ltr">
           {formatCalories(item.calories, lang)}
         </p>

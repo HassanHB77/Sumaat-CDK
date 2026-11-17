@@ -153,6 +153,7 @@ class MenuItemOut(BaseModel):
     dietTags: list[str] = []
     isAvailable: bool
     imageUrl: str | None = None  # "/img/..." on the site's own address; None = no photo
+    popular: bool = False  # one of the restaurant's top dishes (last 30 days); only on GET /restaurants/{id}
 
 
 class RestaurantOut(BaseModel):
@@ -180,6 +181,7 @@ class NearbyRestaurant(RestaurantOut):
 
 class RestaurantDetail(RestaurantOut):
     menu: list[MenuItemOut]
+    typicalReadyMinutes: int | None = None  # median accept -> ready, last 30 days (None if too few orders)
 
 
 class CashierCreate(_In):
@@ -285,3 +287,36 @@ class ImageUploadOut(BaseModel):
 
 class ImageAttachIn(_In):
     key: Annotated[str, Field(min_length=1, max_length=200)]
+
+
+# --- owner numbers ---------------------------------------------------------------
+
+
+class BestSeller(BaseModel):
+    itemId: str
+    name: str
+    nameAr: str
+    qty: int
+
+
+class TodayStats(BaseModel):
+    orders: int
+    served: int
+    open: int
+    rejected: int
+    cancelled: int
+    salesHalalas: int  # SERVED orders only
+    avgOrderHalalas: int
+    avgPrepMinutes: float | None
+    bestSeller: BestSeller | None
+
+
+class DayStats(BaseModel):
+    date: str  # business day YYYY-MM-DD
+    servedOrders: int
+    salesHalalas: int
+
+
+class OwnerStatsOut(BaseModel):
+    today: TodayStats
+    last7: list[DayStats]

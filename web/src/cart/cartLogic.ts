@@ -114,7 +114,14 @@ export function fromDraft(cart: Cart, draft: CartDraft): Cart {
   const lines = draft.lines
     .filter((l) => l.qty > 0)
     .slice(0, MAX_LINES)
-    .map((l) => ({ itemId: l.itemId, name: l.name, nameAr: l.nameAr, priceHalalas: l.priceHalalas, qty: Math.min(l.qty, MAX_QTY) }))
+    .map((l) => ({
+      itemId: l.itemId,
+      name: l.name,
+      nameAr: l.nameAr,
+      priceHalalas: l.priceHalalas,
+      qty: Math.min(l.qty, MAX_QTY),
+      imageUrl: l.imageUrl ?? null,
+    }))
   if (!lines.length) return cart
   const sameRestaurant = cart.restaurantId === draft.restaurant.id
   return {
@@ -164,5 +171,35 @@ export function toOrderBody(cart: Cart) {
     restaurantId: cart.restaurantId,
     items: cart.lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
     ...(note ? { note } : {}),
+  }
+}
+
+/**
+ * "Order again": a draft of a past order's dishes at TODAY's prices from the restaurant's current menu.
+ * Dishes that are gone or hidden are skipped (their names come back so the page can say so).
+ */
+export function draftFromOrder(
+  order: { items: { itemId: string; name: string; nameAr: string; qty: number }[] },
+  restaurant: { id: string; name: string; nameAr: string; menu: MenuItem[] },
+): { draft: CartDraft | null; skipped: { name: string; nameAr: string }[] } {
+  const byId = new Map(restaurant.menu.map((m) => [m.id, m]))
+  const lines: CartLine[] = []
+  const skipped: { name: string; nameAr: string }[] = []
+  for (const l of order.items) {
+    const item = byId.get(l.itemId)
+    if (!item || !item.isAvailable) {
+      skipped.push({ name: l.name, nameAr: l.nameAr })
+      continue
+    }
+    lines.push({ itemId: item.id, name: item.name, nameAr: item.nameAr, priceHalalas: item.priceHalalas, qty: l.qty, imageUrl: item.imageUrl ?? null })
+  }
+  if (!lines.length) return { draft: null, skipped }
+  return {
+    draft: {
+      restaurant: { id: restaurant.id, name: restaurant.name, nameAr: restaurant.nameAr },
+      lines,
+      totalHalalas: lines.reduce((sum, l) => sum + l.priceHalalas * l.qty, 0),
+    },
+    skipped,
   }
 }

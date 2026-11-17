@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { getMyOrders } from '../api/endpoints'
 import type { Order } from '../api/types'
+import { OrderAgainButton } from '../components/OrderAgainButton'
 import { OrderStatusBadge } from '../components/OrderParts'
 import { PageContainer } from '../components/PageContainer'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
@@ -13,11 +14,8 @@ import { isOpen } from '../lib/orders'
 function OrderRow({ order: o }: { order: Order }) {
   const { lang } = useLanguage()
   return (
-    <li>
-      <Link
-        to={`/orders/${o.id}`}
-        className="flex items-center justify-between gap-3 rounded-box bg-base-100 p-4 shadow-sm transition hover:shadow-md"
-      >
+    <li className="flex items-center gap-2 rounded-box bg-base-100 pe-3 shadow-sm transition hover:shadow-md">
+      <Link to={`/orders/${o.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-3 p-4">
         <div className="min-w-0">
           <p className="font-medium">{pickName({ name: o.restaurantName, nameAr: o.restaurantNameAr ?? '' }, lang)}</p>
           <p className="text-sm text-muted" dir="ltr">
@@ -26,6 +24,7 @@ function OrderRow({ order: o }: { order: Order }) {
         </div>
         <OrderStatusBadge status={o.status} />
       </Link>
+      {!isOpen(o.status) && <OrderAgainButton order={o} className="btn btn-xs btn-outline shrink-0" />}
     </li>
   )
 }

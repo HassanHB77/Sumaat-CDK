@@ -17,6 +17,15 @@ ISS = "https://cognito-idp.us-east-1.amazonaws.com/{}"
 
 
 @pytest.fixture(autouse=True)
+def _fresh_stats_cache():
+    from api.services import stats
+
+    stats._insights_cache.clear()
+    yield
+    stats._insights_cache.clear()
+
+
+@pytest.fixture(autouse=True)
 def api_env(monkeypatch):
     monkeypatch.setenv("TABLE_NAME", "sumaat")
     monkeypatch.setenv("USER_POOL_ID", USER_POOL)

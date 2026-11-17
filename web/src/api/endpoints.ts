@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { Cashier, Categories, Cuisine, MenuItem, NearbyRestaurant, Order, PlaceOrderBody, Restaurant, RestaurantDetail } from './types'
+import type { Cashier, Categories, Cuisine, MenuItem, NearbyRestaurant, Order, OwnerStats, PlaceOrderBody, Restaurant, RestaurantDetail } from './types'
 
 // --- public (no login) ---
 
@@ -100,6 +100,13 @@ export function updateMenuItem(restaurantId: string, itemId: string, body: Parti
     auth: true,
     body,
   })
+}
+
+// --- owner: numbers ---
+
+/** Today's numbers + the last 7 business days (owner only; sales = served orders). */
+export function getOwnerStats(restaurantId: string, signal?: AbortSignal) {
+  return apiFetch<OwnerStats>(`/restaurants/${encodeURIComponent(restaurantId)}/stats`, { auth: true, signal })
 }
 
 // --- owner: photos ---

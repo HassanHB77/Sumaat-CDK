@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { MenuItem, NearbyRestaurant } from '../api/types'
 import { DIET_TAGS } from '../api/types'
-import { formatCalories, formatKm, formatMoney, opensAt, parseHours, pickName } from './format'
+import { formatCalories, formatDayShort, formatKm, formatMoney, formatMoneyWhole, opensAt, parseHours, pickName } from './format'
 import { DEFAULT_SPOT, isInAlAhsa, parseSpot } from './geo'
-import { availableDietTags, groupMenu, sortRestaurants } from './menu'
+import { availableDietTags, groupMenu, normalizeSearch, sortRestaurants } from './menu'
 
 describe('format', () => {
   it.each([
@@ -114,5 +114,35 @@ describe('menu', () => {
     const r = (name: string, openNow: boolean, distanceKm: number) => ({ name, openNow, distanceKm }) as NearbyRestaurant
     const sorted = sortRestaurants([r('far-open', true, 3), r('near-closed', false, 0.5), r('near-open', true, 1)])
     expect(sorted.map((x) => x.name)).toEqual(['near-open', 'far-open', 'near-closed'])
+  })
+})
+
+describe('dish search', () => {
+  const items = [
+    item({ name: 'Lamb Kabsa', nameAr: 'كَبْسَة لحم' }),
+    item({ name: 'Green Salad', nameAr: 'سلطة خضراء', category: 'Salads' }),
+    item({ name: 'Hidden Kabsa', nameAr: 'كبسة', isAvailable: false }),
+  ]
+  const order = ['Mains', 'Salads']
+  const names = (search: string) => groupMenu(items, order, [], { search }).flatMap((s) => s.items.map((i) => i.name))
+
+  it('matches English case-insensitively and Arabic without vowel marks or ة/ه differences', () => {
+    expect(names('salad')).toEqual(['Green Salad'])
+    expect(names('كبسه')).toEqual(['Lamb Kabsa']) // hidden dish still hidden for customers
+    expect(names('  ')).toEqual(['Lamb Kabsa', 'Green Salad'])
+    expect(names('pizza')).toEqual([])
+  })
+
+  it('normalises alef forms, ya and tatweel', () => {
+    expect(normalizeSearch('أإآ ى ـــة')).toBe('ااا ي ه')
+  })
+})
+
+describe('chart formats', () => {
+  it('short day and whole riyals, Western digits in Arabic', () => {
+    expect(formatDayShort('2026-11-12', 'en')).toBe('Thu 12')
+    expect(formatDayShort('2026-11-12', 'ar')).toMatch(/12/)
+    expect(formatMoneyWhole(412_49, 'en')).toBe('412 SAR')
+    expect(formatMoneyWhole(1_234_56, 'ar')).toBe('1,235 ر.س')
   })
 })

@@ -27,6 +27,7 @@ export function MenuPage() {
   const toast = useToast()
   const { cart, add, clear, reconcileWith } = useCart()
   const [diet, setDiet] = useState<DietTag[]>([])
+  const [search, setSearch] = useState('')
   const [pending, setPending] = useState<MenuItem | null>(null) // waiting for "start a new cart?"
 
   const restaurant = useQuery({
@@ -43,7 +44,7 @@ export function MenuPage() {
 
   const items = restaurant.data?.menu ?? NO_ITEMS
   const order = categories.data?.categories ?? NO_CATEGORIES
-  const sections = useMemo(() => groupMenu(items, order, diet), [items, order, diet])
+  const sections = useMemo(() => groupMenu(items, order, diet, { search }), [items, order, diet, search])
   const dietTags = useMemo(() => availableDietTags(items, DIET_TAGS), [items])
 
   // Keep the cart in line with this menu (hidden dishes, new prices).
@@ -103,10 +104,25 @@ export function MenuPage() {
           <EmptyState>{t('menu.noItems')}</EmptyState>
         ) : (
           <>
+            <label className="input w-full">
+              <svg viewBox="0 0 24 24" className="size-4 opacity-60" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+              </svg>
+              <input
+                type="search"
+                className="grow"
+                placeholder={t('menu.searchPlaceholder')}
+                aria-label={t('menu.search')}
+                value={search}
+                maxLength={60}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </label>
             <CategoryTabs sections={sections} />
             <DietFilterChips tags={dietTags} selected={diet} onChange={setDiet} />
             {sections.length === 0 ? (
-              <EmptyState>{t('menu.empty')}</EmptyState>
+              <EmptyState>{search.trim() ? t('menu.noMatch', { q: search.trim() }) : t('menu.empty')}</EmptyState>
             ) : (
               sections.map((s) => (
                 <section

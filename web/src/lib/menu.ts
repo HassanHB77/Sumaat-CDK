@@ -12,10 +12,14 @@ export function groupMenu(
   items: MenuItem[],
   categoryOrder: string[],
   dietFilter: DietTag[] = [],
-  options: { includeHidden?: boolean } = {},
+  options: { includeHidden?: boolean; search?: string } = {},
 ): MenuSection[] {
+  const query = normalizeSearch(options.search ?? '')
   const visible = items.filter(
-    (i) => (options.includeHidden || i.isAvailable) && dietFilter.every((tag) => i.dietTags?.includes(tag)),
+    (i) =>
+      (options.includeHidden || i.isAvailable) &&
+      dietFilter.every((tag) => i.dietTags?.includes(tag)) &&
+      (!query || normalizeSearch(i.name).includes(query) || normalizeSearch(i.nameAr).includes(query)),
   )
   const byCategory = new Map<string, MenuItem[]>()
   for (const item of visible) {
@@ -40,4 +44,19 @@ export function sortRestaurants(list: NearbyRestaurant[]): NearbyRestaurant[] {
 export function availableDietTags(items: MenuItem[], allTags: readonly DietTag[]): DietTag[] {
   const present = new Set(items.filter((i) => i.isAvailable).flatMap((i) => i.dietTags ?? []))
   return allTags.filter((t) => present.has(t))
+}
+
+/**
+ * Text for matching a dish search: lower case, Arabic vowel marks and tatweel removed, and the letters people
+ * type interchangeably made the same (أ إ آ -> ا, ة -> ه, ى -> ي). "كبسه" finds "كَبْسَة", "salad" finds "Green Salad".
+ */
+export function normalizeSearch(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/\s+/g, ' ')
+    .trim()
 }

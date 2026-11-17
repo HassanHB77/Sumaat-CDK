@@ -10,12 +10,13 @@ from api.models import (
     Lat,
     Lng,
     NearbyRestaurant,
+    OwnerStatsOut,
     RestaurantCreate,
     RestaurantDetail,
     RestaurantOut,
     RestaurantUpdate,
 )
-from api.services import restaurants
+from api.services import restaurants, stats
 
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
 
@@ -34,7 +35,21 @@ def list_near(
 
 @router.get("/{restaurant_id}", response_model=RestaurantDetail)
 def get_one(restaurant_id: str):
-    return restaurants.get(restaurant_id)
+    detail = restaurants.get(restaurant_id)
+    insights = stats.public_insights(restaurant_id)  # cached; "usually ready in" + "Popular"
+    popular = set(insights["popularItemIds"])
+    return {
+        **detail,
+        "typicalReadyMinutes": insights["typicalReadyMinutes"],
+        "menu": [{**m, "popular": m["id"] in popular} for m in detail["menu"]],
+    }
+
+
+@router.get("/{restaurant_id}/stats", response_model=OwnerStatsOut)
+def owner_stats(restaurant_id: str, owner: Owner):
+    """Today's numbers + the last 7 business days (owner of this restaurant only; sales = served orders)."""
+    restaurants.load_owned(owner, restaurant_id)
+    return stats.owner_overview(restaurant_id)
 
 
 @router.post("", response_model=RestaurantOut, status_code=status.HTTP_201_CREATED)
