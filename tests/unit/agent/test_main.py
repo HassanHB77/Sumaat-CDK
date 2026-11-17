@@ -303,6 +303,19 @@ def test_guardrail_mode_is_sync(monkeypatch):
     assert session_mod.build_model().config["guardrail_stream_processing_mode"] == "sync"
 
 
+def test_owners_use_their_own_guardrail(monkeypatch):
+    from agent import session as session_mod
+
+    monkeypatch.setenv("GUARDRAIL_ID", "gr-customer")
+    monkeypatch.setenv("GUARDRAIL_VERSION", "3")
+    monkeypatch.setenv("OWNER_GUARDRAIL_ID", "gr-owner")
+    monkeypatch.setenv("OWNER_GUARDRAIL_VERSION", "1")
+    assert session_mod.build_model("customer").config["guardrail_id"] == "gr-customer"
+    owner = session_mod.build_model("owner").config
+    assert (owner["guardrail_id"], owner["guardrail_version"]) == ("gr-owner", "1")
+    assert owner["guardrail_stream_processing_mode"] == "sync"
+
+
 def test_markdown_removed_from_reply(agent_script):
     script, _ = agent_script
     script[:] = [{"data": "- **Kleija** – 15 SAR"}, {"result": None}]

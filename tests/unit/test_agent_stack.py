@@ -111,9 +111,12 @@ def test_runtime_env_and_lifecycle(template):
     assert r["LifecycleConfiguration"] == {"IdleRuntimeSessionTimeout": 900}
 
 
+def _guardrails(template) -> dict:
+    return {g["Properties"]["Name"]: g["Properties"] for g in template.find_resources("AWS::Bedrock::Guardrail").values()}
+
+
 def test_guardrail_strict_standard_tier(template):
-    (g,) = template.find_resources("AWS::Bedrock::Guardrail").values()
-    p = g["Properties"]
+    p = _guardrails(template)["sumaat-chat"]  # customers
     filters = {f["Type"]: (f["InputStrength"], f["OutputStrength"]) for f in p["ContentPolicyConfig"]["FiltersConfig"]}
     assert filters == {
         "HATE": ("HIGH", "HIGH"), "INSULTS": ("HIGH", "HIGH"), "SEXUAL": ("HIGH", "HIGH"),
@@ -135,11 +138,29 @@ def test_guardrail_strict_standard_tier(template):
     assert p["BlockedInputMessaging"] == p["BlockedOutputsMessaging"] == "[SUMAAT_BLOCKED]"
 
 
-def test_guardrail_version_follows_settings(template):
-    from infra.guardrail import settings_fingerprint
+def test_owner_guardrail_is_the_same_minus_financial_advice(template):
+    g = _guardrails(template)
+    customer, owner = g["sumaat-chat"], g["sumaat-owner-chat"]
+    for key in ("ContentPolicyConfig", "WordPolicyConfig", "SensitiveInformationPolicyConfig", "CrossRegionConfig",
+                "BlockedInputMessaging", "BlockedOutputsMessaging"):
+        assert owner[key] == customer[key], key
+    assert {t["Name"] for t in owner["TopicPolicyConfig"]["TopicsConfig"]} == {
+        "Medical-advice", "Politics-and-religion-debates", "Other-food-apps"
+    }
 
-    (v,) = template.find_resources("AWS::Bedrock::GuardrailVersion").values()
-    assert v["Properties"]["Description"] == f"settings {settings_fingerprint()}"
+
+def test_guardrail_versions_follow_settings(template):
+    from infra.guardrail import OWNER_DENIED_TOPICS, settings_fingerprint
+
+    descriptions = {v["Properties"]["Description"] for v in template.find_resources("AWS::Bedrock::GuardrailVersion").values()}
+    assert descriptions == {f"settings {settings_fingerprint()}", f"settings {settings_fingerprint(OWNER_DENIED_TOPICS)}"}
+
+
+def test_runtime_knows_both_guardrails(template):
+    env = _runtime(template)["EnvironmentVariables"]
+    assert "Fn::GetAtt" in str(env["OWNER_GUARDRAIL_ID"]) and "Fn::GetAtt" in str(env["OWNER_GUARDRAIL_VERSION"])
+    apply = _stmt(template, "bedrock:ApplyGuardrail")
+    assert len([r for r in apply["Resource"] if "GuardrailArn" in str(r)]) == 2
 
 
 def test_topic_limits():
@@ -174,7 +195,7 @@ def test_dynamodb_access_limited_by_partition_key(template):
     assert orders["Action"] == "dynamodb:Query"
     assert orders["Condition"]["ForAllValues:StringLike"] == {"dynamodb:LeadingKeys": ["RORDERS#*"]}
     fields = set(orders["Condition"]["ForAllValues:StringEquals"]["dynamodb:Attributes"])
-    assert {"status", "items", "statusHistory", "totalHalalas"} <= fields
+    assert {"status", "items", "statusHistory", "totalHalalas", "PK", "SK", "GSI1PK", "GSI1SK"} <= fields
     assert not fields & {"customerName", "customerPhone", "customerEmail", "customerSub", "note"}
     assert orders["Condition"]["StringEqualsIfExists"] == {"dynamodb:Select": "SPECIFIC_ATTRIBUTES"}
     write = _stmt(template, "dynamodb:UpdateItem")

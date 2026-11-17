@@ -35,8 +35,7 @@ DENIED_TOPICS = {
         ["What do you think about the government?", "Which religion is right?", "ما رأيك في الانتخابات؟"],
     ),
     "Financial-and-legal-advice": (
-        "Personal advice about investments, stocks, crypto, loans, taxes or legal matters and disputes. "
-        "A restaurant owner's own order counts, sales figures and dish statistics in the app are not included.",
+        "Advice about investments, stocks, crypto, loans, taxes or legal matters and disputes.",
         ["Should I buy this stock?", "How do I sue a restaurant?", "هل أستثمر في العملات الرقمية؟"],
     ),
     "Other-food-apps": (
@@ -51,19 +50,38 @@ PII_BLOCKED = ["CREDIT_DEBIT_CARD_NUMBER", "CREDIT_DEBIT_CARD_CVV", "CREDIT_DEBI
 SAUDI_IBAN = r"\bSA\d{22}\b"
 
 
-def settings_fingerprint() -> str:
+# The OWNER assistant answers questions about the owner's own sales. Bedrock's "financial advice" topic flags
+# "how much did we sell / revenue" (checked live, 17 Nov), so the owner guardrail leaves that one topic out; the
+# owner prompt refuses investment, tax and legal advice itself. Everything else is identical.
+OWNER_DENIED_TOPICS = {k: v for k, v in DENIED_TOPICS.items() if k != "Financial-and-legal-advice"}
+
+
+def settings_fingerprint(topics: dict | None = None) -> str:
     """Changes whenever a setting changes, so a new guardrail version gets published."""
-    data = [STRICT_FILTERS, DENIED_TOPICS, PII_MASKED, PII_BLOCKED, SAUDI_IBAN, BLOCKED_MARKER, GUARDRAIL_PROFILE]
+    topics = DENIED_TOPICS if topics is None else topics
+    data = [STRICT_FILTERS, topics, PII_MASKED, PII_BLOCKED, SAUDI_IBAN, BLOCKED_MARKER, GUARDRAIL_PROFILE]
     return hashlib.sha256(json.dumps(data, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def build_guardrail(scope: Construct, region: str, account: str) -> tuple[bedrock.CfnGuardrail, bedrock.CfnGuardrailVersion]:
+def build_guardrail(
+    scope: Construct,
+    region: str,
+    account: str,
+    *,
+    owner: bool = False,
+) -> tuple[bedrock.CfnGuardrail, bedrock.CfnGuardrailVersion]:
+    """The customer guardrail (default) or the owner guardrail (same settings minus the financial-advice topic)."""
     G = bedrock.CfnGuardrail
+    topics = OWNER_DENIED_TOPICS if owner else DENIED_TOPICS
+    prefix = "Owner" if owner else ""
     guardrail = G(
         scope,
-        "Guardrail",
-        name="sumaat-chat",
-        description="Sumaat AI chat: strict content filters, 4 denied topics, PII masking/blocking (EN + AR)",
+        f"{prefix}Guardrail",
+        name="sumaat-owner-chat" if owner else "sumaat-chat",
+        description=(
+            f"Sumaat AI chat ({'owners' if owner else 'customers'}): strict content filters, {len(topics)} denied "
+            "topics, PII masking/blocking (EN + AR)"
+        ),
         blocked_input_messaging=BLOCKED_MARKER,
         blocked_outputs_messaging=BLOCKED_MARKER,
         cross_region_config=G.GuardrailCrossRegionConfigProperty(
@@ -80,7 +98,7 @@ def build_guardrail(scope: Construct, region: str, account: str) -> tuple[bedroc
         topic_policy_config=G.TopicPolicyConfigProperty(
             topics_config=[
                 G.TopicConfigProperty(name=name, definition=definition, examples=examples, type="DENY")
-                for name, (definition, examples) in DENIED_TOPICS.items()
+                for name, (definition, examples) in topics.items()
             ],
             topics_tier_config=G.TopicsTierConfigProperty(tier_name="STANDARD"),
         ),
@@ -101,8 +119,8 @@ def build_guardrail(scope: Construct, region: str, account: str) -> tuple[bedroc
     )
     version = bedrock.CfnGuardrailVersion(
         scope,
-        "GuardrailVersion",
+        f"{prefix}GuardrailVersion",
         guardrail_identifier=guardrail.attr_guardrail_id,
-        description=f"settings {settings_fingerprint()}",  # new settings -> new description -> new version
+        description=f"settings {settings_fingerprint(topics)}",  # new settings -> new description -> new version
     )
     return guardrail, version

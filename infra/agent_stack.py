@@ -84,6 +84,8 @@ class AgentStack(Stack):
         )
 
         guardrail, guardrail_version = build_guardrail(self, self.region, self.account)
+        # Owners' assistant: same safety settings minus the financial-advice topic (it blocks "how much did we sell").
+        owner_guardrail, owner_guardrail_version = build_guardrail(self, self.region, self.account, owner=True)
 
         role = iam.Role(
             self,
@@ -99,7 +101,7 @@ class AgentStack(Stack):
                 },
             ),
         )
-        self._grant(role, image, table, guardrail.attr_guardrail_arn)
+        self._grant(role, image, table, [guardrail.attr_guardrail_arn, owner_guardrail.attr_guardrail_arn])
 
         discovery_url = (
             f"https://cognito-idp.{self.region}.amazonaws.com/{user_pool.user_pool_id}"
@@ -139,6 +141,8 @@ class AgentStack(Stack):
                 "MODEL_ID": DEFAULT_MODEL_ID,
                 "GUARDRAIL_ID": guardrail.attr_guardrail_id,
                 "GUARDRAIL_VERSION": guardrail_version.attr_version,
+                "OWNER_GUARDRAIL_ID": owner_guardrail.attr_guardrail_id,
+                "OWNER_GUARDRAIL_VERSION": owner_guardrail_version.attr_version,
                 "CHAT_DAILY_LIMIT": str(DEFAULT_LIMIT),
                 **TRACING_ENV,
             },
@@ -158,7 +162,7 @@ class AgentStack(Stack):
         CfnOutput(self, "GuardrailId", value=guardrail.attr_guardrail_id)
         self._suppress_nag()
 
-    def _grant(self, role: iam.Role, image: ecr_assets.DockerImageAsset, table: dynamodb.ITable, guardrail_arn: str):
+    def _grant(self, role: iam.Role, image: ecr_assets.DockerImageAsset, table: dynamodb.ITable, guardrail_arns: list[str]):
         image.repository.grant_pull(role)  # also adds ecr:GetAuthorizationToken (account-wide by design)
         region, account = self.region, self.account
         statements = [
@@ -173,7 +177,7 @@ class AgentStack(Stack):
             # The guardrail (Standard tier runs through the cross-region guardrail profile).
             iam.PolicyStatement(
                 actions=["bedrock:ApplyGuardrail"],
-                resources=[guardrail_arn, f"arn:aws:bedrock:*:{account}:guardrail-profile/{GUARDRAIL_PROFILE}"],
+                resources=[*guardrail_arns, f"arn:aws:bedrock:*:{account}:guardrail-profile/{GUARDRAIL_PROFILE}"],
             ),
             # DynamoDB: only restaurant/menu/config rows and its own quota rows - never orders or customers.
             iam.PolicyStatement(
@@ -193,7 +197,8 @@ class AgentStack(Stack):
                 resources=[f"{table.table_arn}/index/GSI1"],
                 conditions={
                     **_leading_keys(ORDER_INDEX_KEYS),
-                    "ForAllValues:StringEquals": {"dynamodb:Attributes": list(STATS_FIELDS)},
+                    # DynamoDB requires the table's key attributes (PK, SK = "ORDER#<id>", "ORDER") on the list too.
+                    "ForAllValues:StringEquals": {"dynamodb:Attributes": [*STATS_FIELDS, "PK", "SK"]},
                     "StringEqualsIfExists": {"dynamodb:Select": "SPECIFIC_ATTRIBUTES"},
                 },
             ),

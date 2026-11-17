@@ -33,7 +33,7 @@ class ChatSession:
     last_used: float = field(default_factory=time.monotonic)
 
 
-def build_model():
+def build_model(mode: str = "customer"):
     from strands.models import BedrockModel
 
     config: dict[str, Any] = {
@@ -41,9 +41,11 @@ def build_model():
         "temperature": 0.3,
         "max_tokens": 800,
     }
-    if os.environ.get("GUARDRAIL_ID"):
-        config["guardrail_id"] = os.environ["GUARDRAIL_ID"]
-        config["guardrail_version"] = os.environ.get("GUARDRAIL_VERSION", "DRAFT")
+    # Owners use their own guardrail: same settings minus the financial-advice topic (infra/guardrail.py).
+    prefix = "OWNER_" if mode == "owner" and os.environ.get("OWNER_GUARDRAIL_ID") else ""
+    if os.environ.get(f"{prefix}GUARDRAIL_ID"):
+        config["guardrail_id"] = os.environ[f"{prefix}GUARDRAIL_ID"]
+        config["guardrail_version"] = os.environ.get(f"{prefix}GUARDRAIL_VERSION", "DRAFT")
         # Check the reply BEFORE each piece streams out, so blocked text never flashes on screen.
         config["guardrail_stream_processing_mode"] = "sync"
         # Check the customer's newest message, not the whole history and tool data again on every model call
@@ -65,7 +67,7 @@ def build_agent(session: ChatSession):
         from agent.tools import build_tools
 
     return Agent(
-        model=build_model(),
+        model=build_model(session.mode),
         tools=build_tools(session),
         system_prompt=prompt,
         conversation_manager=SlidingWindowConversationManager(window_size=WINDOW_MESSAGES),
