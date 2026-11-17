@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { getOwnerStats } from '../api/endpoints'
 import type { OwnerStats } from '../api/types'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -31,7 +32,7 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
       <span className="truncate text-xl font-bold" dir="auto">
         {value}
       </span>
-      {sub && <span className="truncate text-xs text-muted">{sub}</span>}
+      {sub && <span className="line-clamp-2 text-xs text-muted">{sub}</span>}
     </div>
   )
 }
@@ -68,44 +69,62 @@ const PLOT_HEIGHT = 112 // px
 
 /**
  * One series (sales per business day): thin columns in the brand colour, growing from one baseline, 4px rounded
- * tops. Today's value is labelled; every column shows its day, sales and orders on hover / keyboard focus; a
- * screen-reader table repeats the numbers. Time runs left to right in both languages.
+ * tops. A readout line above the plot shows the hovered / tapped / focused day (today by default) - no floating
+ * tooltip, so nothing can stick out of a phone screen. A screen-reader table repeats the numbers. Time runs left
+ * to right in both languages.
  */
 function SalesChart({ days }: { days: OwnerStats['last7'] }) {
   const { t, lang } = useLanguage()
+  const [active, setActive] = useState<number | null>(null)
   const max = Math.max(1, ...days.map((d) => d.salesHalalas))
   const total = days.reduce((sum, d) => sum + d.salesHalalas, 0)
+  const shown = days[active ?? days.length - 1]
+  const readout = shown
+    ? t('owner.stats.chartTip', {
+        day: active === null || active === days.length - 1 ? t('owner.stats.today') : formatDayShort(shown.date, lang),
+        amount: formatMoneyWhole(shown.salesHalalas, lang),
+        n: shown.servedOrders,
+      })
+    : ''
   return (
     <figure className="rounded-box bg-base-100 p-3 shadow-sm">
-      <figcaption className="mb-2 flex items-baseline justify-between gap-2">
+      <figcaption className="mb-1 flex items-baseline justify-between gap-2">
         <span className="text-sm font-semibold">{t('owner.stats.chartTitle')}</span>
         <span className="text-xs text-muted">{t('owner.stats.chartTotal', { amount: formatMoneyWhole(total, lang) })}</span>
       </figcaption>
+      <p className="mb-2 min-h-5 text-sm font-medium" aria-live="polite">
+        {readout}
+      </p>
       <div className="flex items-end justify-between gap-1 border-b border-base-300" style={{ height: PLOT_HEIGHT + 20 }} dir="ltr">
         {days.map((d, i) => {
           const isToday = i === days.length - 1
+          const isActive = (active ?? days.length - 1) === i
           const h = d.salesHalalas ? Math.max(3, Math.round((d.salesHalalas / max) * PLOT_HEIGHT)) : 0
-          const tip = t('owner.stats.chartTip', {
-            day: formatDayShort(d.date, lang),
-            amount: formatMoneyWhole(d.salesHalalas, lang),
-            n: d.servedOrders,
-          })
           return (
-            <div
+            <button
               key={d.date}
-              tabIndex={0}
-              aria-label={tip}
-              data-tip={tip}
-              className="tooltip tooltip-top group flex h-full flex-1 flex-col items-center justify-end rounded outline-offset-2 focus-visible:outline-2 focus-visible:outline-primary"
+              type="button"
+              aria-label={t('owner.stats.chartTip', {
+                day: formatDayShort(d.date, lang),
+                amount: formatMoneyWhole(d.salesHalalas, lang),
+                n: d.servedOrders,
+              })}
+              aria-pressed={isActive}
+              onMouseEnter={() => setActive(i)}
+              onMouseLeave={() => setActive(null)}
+              onFocus={() => setActive(i)}
+              onBlur={() => setActive(null)}
+              onClick={() => setActive(i)}
+              className="flex h-full flex-1 cursor-default flex-col items-center justify-end rounded outline-offset-2 focus-visible:outline-2 focus-visible:outline-primary"
             >
               {isToday && (
                 <span className="mb-1 text-[11px] font-semibold leading-none">{formatMoneyWhole(d.salesHalalas, lang)}</span>
               )}
-              <div
-                className={`w-full max-w-6 rounded-t-[4px] transition-opacity ${isToday ? 'bg-primary' : 'bg-primary/60'} group-hover:opacity-80`}
+              <span
+                className={`block w-full max-w-6 rounded-t-[4px] bg-primary transition-opacity ${isActive ? '' : 'opacity-75'}`}
                 style={{ height: h }}
               />
-            </div>
+            </button>
           )
         })}
       </div>

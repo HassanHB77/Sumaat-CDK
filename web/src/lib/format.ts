@@ -77,7 +77,7 @@ export function formatTime(iso: string, lang: Lang): string {
 export function formatDayShort(businessDate: string, lang: Lang): string {
   return new Intl.DateTimeFormat(LOCALE[lang], { weekday: 'short', day: 'numeric', timeZone: 'UTC' })
     .format(new Date(`${businessDate}T12:00:00Z`))
-    .replace(/,/g, '')
+    .replace(/[,،]/g, '')
 }
 
 /** 41250 -> "413 SAR" / "413 ر.س": whole riyals, for tight spaces (cards, chart labels). */
